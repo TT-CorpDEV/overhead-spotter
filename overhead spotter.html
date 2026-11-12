@@ -1,0 +1,627 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0a0f2a"><style>body{margin:0}[hidden]{display:none!important}</style></head><body><title>Overhead Spotter</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=B612:wght@400;700&family=B612+Mono:wght@400;700&display=swap">
+<style>
+/* Layout: one-screen phone app. A full-bleed sky scope (camera or sample sky) carries the HUD;
+   a lock card rides the bottom edge; four tabs below. Single dark look by choice: it is a night-sky instrument. */
+:root{
+  color-scheme:dark;
+  --sky-hi:#0a0f2a; --sky-lo:#2b2a66; --ground:#070a1a;
+  --panel:#11183a; --panel-2:#1a2350; --line:#2c3878;
+  --ink:#eef1ff; --mute:#9aa5d6;
+  --amber:#ffb23e; --lock:#62e2ff;
+  --k-plane:#ffe1ae; --k-heli:#8df0a6; --k-sat:#c8a4ff; --k-ship:#5fd6cf; --k-sky:#ffe86b;
+  --t1:#9aa5d6; --t2:#62e2ff; --t3:#c8a4ff; --t4:#ff86b8;
+  --f-text:"B612",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-data:"B612 Mono",ui-monospace,Menlo,Consolas,monospace;
+  --gl:max(16px, env(safe-area-inset-left, 0px)); --gr:max(16px, env(safe-area-inset-right, 0px));
+}
+html,body{height:100%}
+body{background:var(--sky-hi);color:var(--ink);font-family:var(--f-text);font-size:14px;line-height:1.4;overflow:hidden}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2px solid var(--lock);outline-offset:2px}
+.app{height:100%;max-width:480px;margin:0 auto;display:flex;flex-direction:column;position:relative;background:var(--sky-hi);overflow:hidden}
+@media(min-width:520px){.app{border-inline:1px solid var(--line)}}
+.top{display:flex;align-items:center;gap:10px;padding-block:10px;padding-left:var(--gl);padding-right:var(--gr);background:var(--panel);border-bottom:1px solid var(--line)}
+.brand{font-weight:700;font-size:16px;letter-spacing:.02em;flex:1;min-width:0}
+.brand small{display:block;font:400 11px var(--f-data);color:var(--mute);letter-spacing:.04em}
+.chip{font:700 11px var(--f-data);letter-spacing:.08em;text-transform:uppercase;padding:7px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel-2);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.chip i{width:8px;height:8px;border-radius:50%;background:var(--amber)}
+.chip.live i{background:var(--k-heli)}
+.icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);display:grid;place-items:center}
+.stage{flex:1;min-height:0;position:relative}
+.view{position:absolute;inset:0}
+.view.scroll{overflow-y:auto;padding-block:14px;padding-left:var(--gl);padding-right:var(--gr)}
+#cam,#ar,#radar{position:absolute;inset:0;width:100%;height:100%}
+#cam{object-fit:cover;background:#000}
+#ar{touch-action:none}
+.hint{position:absolute;left:var(--gl);top:56px;font:400 11px var(--f-data);color:var(--mute);background:rgba(10,15,42,.6);padding:4px 8px;border-radius:6px;pointer-events:none}
+#rare{position:absolute;right:var(--gr);top:56px;max-width:62%;text-align:left;font-size:12px;padding:6px 10px;border-radius:10px;background:rgba(17,24,58,.9);border:1px solid var(--t4);color:var(--ink)}
+#rare b{color:var(--t4);font:700 10px var(--f-data);letter-spacing:.1em;text-transform:uppercase;display:block}
+.card{position:absolute;left:var(--gl);right:var(--gr);bottom:12px;background:rgba(17,24,58,.94);border:1px solid var(--lock);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.card-h{display:flex;align-items:baseline;gap:8px;min-width:0}
+.card-h b{font:700 20px var(--f-data);letter-spacing:.03em}
+.card-h span{color:var(--mute);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stats div{min-width:0}
+.stats dt,.lbl{font:400 10px var(--f-data);letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.stats dd{margin:0;font:700 14px var(--f-data);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+dl{margin:0}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{flex:1;min-width:120px;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);font-weight:700;text-align:center}
+.btn.go{background:var(--amber);border-color:var(--amber);color:#1a1200}
+.btn[disabled]{opacity:.6;cursor:default}
+.pill{font:700 10px var(--f-data);letter-spacing:.1em;text-transform:uppercase;padding:3px 7px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.t1{color:var(--t1)}.t2{color:var(--t2)}.t3{color:var(--t3)}.t4{color:var(--t4)}
+.radar-ctl{position:absolute;left:var(--gl);right:var(--gr);bottom:12px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel)}
+.seg button{padding:9px 11px;font:700 12px var(--f-data)}
+.seg button[aria-pressed="true"]{background:var(--amber);color:#1a1200}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.filters button{padding:7px 10px;border-radius:999px;border:1px solid var(--line);font-size:12px;color:var(--mute);display:flex;gap:6px;align-items:center}
+.filters button[aria-pressed="true"]{color:var(--ink);background:var(--panel-2)}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;text-align:left;padding:10px 12px;border-radius:12px;background:var(--panel);border:1px solid var(--line);width:100%}
+.item .mid{min-width:0}
+.item .mid b{font:700 14px var(--f-data);display:block}
+.item .mid span{color:var(--mute);font-size:12px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .end{text-align:right;font:400 12px var(--f-data);font-variant-numeric:tabular-nums;color:var(--mute)}
+.item .end b{display:block;color:var(--ink);font-size:13px}
+h2{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin:18px 0 8px;font-weight:700}
+h2:first-child{margin-top:0}
+.score{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.score div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:0}
+.score b{font:700 22px var(--f-data);display:block;font-variant-numeric:tabular-nums}
+.bar{height:6px;border-radius:3px;background:var(--panel-2);overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;background:var(--amber)}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px}
+.badge{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;opacity:.5}
+.badge.on{opacity:1;border-color:var(--amber)}
+.badge b{display:block;font-size:13px}
+.badge span{font-size:11px;color:var(--mute)}
+.badge.on em{color:var(--amber)}
+.badge em{font:700 10px var(--f-data);font-style:normal;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.empty{color:var(--mute);background:var(--panel);border:1px dashed var(--line);border-radius:12px;padding:14px}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--panel);border-top:1px solid var(--line);padding-left:var(--gl);padding-right:var(--gr)}
+.tabs button{padding:9px 0 10px;display:flex;flex-direction:column;align-items:center;gap:3px;font:700 10px var(--f-data);letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.tabs button[aria-selected="true"]{color:var(--amber)}
+.sheet{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(5,8,22,.6)}
+.sheet-p{background:var(--panel);border-top:1px solid var(--line);border-radius:18px 18px 0 0;max-height:88%;overflow-y:auto;padding-block:16px 22px;padding-left:var(--gl);padding-right:var(--gr)}
+.sheet-h{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px}
+.sheet-h div{flex:1;min-width:0}
+.sheet-h h1{margin:0;font:700 24px var(--f-data);letter-spacing:.02em;overflow-wrap:anywhere}
+.sheet-h p{margin:2px 0 0;color:var(--mute)}
+.route{display:flex;align-items:center;gap:10px;background:var(--panel-2);border-radius:12px;padding:10px 12px;margin-bottom:12px}
+.route span{flex:1;min-width:0;font-weight:700}
+.route span:last-child{text-align:right}
+.route svg{flex:none;color:var(--amber)}
+.spec{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0}
+.spec dt{color:var(--mute)}.spec dd{margin:0;min-width:0}
+.span-bar{margin-top:10px}
+.fact{margin:12px 0 0;padding:10px 12px;border-left:3px solid var(--amber);background:var(--panel-2);border-radius:0 10px 10px 0}
+.note{color:var(--mute);font-size:12px;margin:10px 0 0}
+.stat-row{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.stat-row span:last-child{font:700 12px var(--f-data);text-transform:uppercase;letter-spacing:.06em}
+.ok{color:var(--k-heli)}.off{color:var(--mute)}.bad{color:var(--t4)}
+input[type=range]{width:100%;accent-color:var(--amber)}
+#toast{position:absolute;left:var(--gl);right:var(--gr);top:64px;z-index:9;background:var(--ink);color:#0a0f2a;border-radius:10px;padding:10px 12px;font-weight:700;text-align:center}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">Overhead Spotter<small id="where">Sample sky · Portland, OR</small></div>
+    <button class="chip" id="mode" data-act="settings"><i></i><span>Sample</span></button>
+    <button class="icon-btn" data-act="settings" aria-label="Settings and sensors">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+    </button>
+  </header>
+
+  <main class="stage">
+    <section class="view" id="v-point">
+      <video id="cam" playsinline muted hidden></video>
+      <canvas id="ar" aria-label="Sky scope. Aim at an aircraft to identify it."></canvas>
+      <div class="hint" id="hint">Drag to look around</div>
+      <button id="rare" data-act="guide" hidden></button>
+      <div class="card" id="card" hidden>
+        <div class="card-h"><b id="c-cs"></b><span id="c-sub"></span><em class="pill" id="c-tier"></em></div>
+        <dl class="stats">
+          <div><dt>Altitude</dt><dd id="c-alt"></dd></div>
+          <div><dt>Speed</dt><dd id="c-spd"></dd></div>
+          <div><dt>Distance</dt><dd id="c-dst"></dd></div>
+        </dl>
+        <div class="row">
+          <button class="btn" data-act="detail" id="c-more">Details</button>
+          <button class="btn go" data-act="log" id="c-log">Log it</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="v-radar" hidden>
+      <canvas id="radar" aria-label="Radar of nearby traffic"></canvas>
+      <div class="radar-ctl">
+        <div class="seg" id="range" role="group" aria-label="Range in miles">
+          <button data-range="10">10</button><button data-range="25">25</button><button data-range="50">50</button><button data-range="100">100 mi</button>
+        </div>
+        <div class="seg" role="group" aria-label="Radar orientation">
+          <button data-act="north" id="north-btn" aria-pressed="false">North up</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="view scroll" id="v-list" hidden>
+      <div class="filters" id="filters"></div>
+      <div class="list" id="list"></div>
+    </section>
+
+    <section class="view scroll" id="v-hangar" hidden></section>
+  </main>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-view="point" aria-selected="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg>Point</button>
+    <button role="tab" data-view="radar" aria-selected="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 12l6-6"/></svg>Radar</button>
+    <button role="tab" data-view="list" aria-selected="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Nearby</button>
+    <button role="tab" data-view="hangar" aria-selected="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V10l9-6 9 6v10M7 20v-7h10v7"/></svg>Hangar</button>
+  </nav>
+
+  <div class="sheet" id="detail" hidden><div class="sheet-p" id="detail-p"></div></div>
+
+  <div class="sheet" id="settings" hidden><div class="sheet-p">
+    <div class="sheet-h"><div><h1>Sensors</h1><p>Live mode uses your phone's GPS, compass and camera.</p></div>
+      <button class="icon-btn" data-act="close" aria-label="Close">✕</button></div>
+    <div id="sensor-rows"></div>
+    <div class="row" style="margin-top:14px"><button class="btn go" data-act="live" id="live-btn">Go live</button><button class="btn" data-act="demo">Use sample sky</button></div>
+    <h2>Scope zoom match</h2>
+    <label class="lbl" for="fov">Field of view <span id="fov-v">60°</span></label>
+    <input type="range" id="fov" min="40" max="80" value="60">
+    <p class="note">If labels drift off the real aircraft as you pan, adjust this until they stay put.</p>
+    <h2>Where data comes from</h2>
+    <p class="note">Aircraft: community ADS-B receiver networks. Satellites: orbital elements from CelesTrak. Sun and Moon: computed on your phone. Live mode sends your rounded position to the flight feed to ask what is nearby. Ships need an AIS data key and show only in the sample sky for now. Your logbook is saved in this browser only.</p>
+  </div></div>
+
+  <div id="toast" hidden role="status"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.0.0/satellite.min.js"></script>
+<script>
+(()=>{
+const D=Math.PI/180,$=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const COL={plane:cssv('--k-plane'),heli:cssv('--k-heli'),sat:cssv('--k-sat'),ship:cssv('--k-ship'),sky:cssv('--k-sky'),
+  lock:cssv('--lock'),amber:cssv('--amber'),ink:cssv('--ink'),mute:cssv('--mute'),line:cssv('--line'),hi:cssv('--sky-hi'),lo:cssv('--sky-lo'),ground:cssv('--ground'),t4:cssv('--t4')};
+const KIND={plane:'Airplane',heli:'Helicopter',sat:'Satellite',ship:'Ship',sky:'Sky'};
+const TIER=['','Common','Uncommon','Rare','Epic'],PTS=[0,10,25,60,150];
+
+// code:[name, maker, role, engines, seats/payload, range nm, span ft, year, tier, fact, class]
+const TYPES={
+B738:['Boeing 737-800','Boeing','Narrow-body airliner','2 × CFM56-7B turbofans','162–189 seats',2935,117.4,1997,1,'The best-selling 737 variant, with nearly 5,000 built.','narrow'],
+B739:['Boeing 737-900ER','Boeing','Narrow-body airliner','2 × CFM56-7B turbofans','178–220 seats',2950,117.4,2006,1,'The longest 737 of its generation. Look for the extra exit door behind the wing.','narrow'],
+B38M:['Boeing 737 MAX 8','Boeing','Narrow-body airliner','2 × CFM LEAP-1B turbofans','162–178 seats',3550,117.8,2016,1,'Split-tip winglets and scalloped engine nacelles set it apart from older 737s.','narrow'],
+A320:['Airbus A320','Airbus','Narrow-body airliner','2 × CFM56 or IAE V2500 turbofans','150–180 seats',3300,117.4,1987,1,'The first airliner with digital fly-by-wire controls and side-sticks.','narrow'],
+A21N:['Airbus A321neo','Airbus','Narrow-body airliner','2 × CFM LEAP-1A or PW1100G turbofans','180–220 seats',3500,117.4,2016,1,'Long-range versions fly ocean crossings that once needed a wide-body.','narrow'],
+E75L:['Embraer 175','Embraer','Regional jet','2 × GE CF34-8E turbofans','76 seats',2200,93.9,2003,1,'The workhorse of US regional flying, usually in a major airline’s colors.','regional'],
+DH8D:['Dash 8-400','De Havilland Canada','Regional turboprop','2 × PW150A turboprops','76 seats',1100,93.3,1998,2,'Six-blade propellers and active noise cancelling earned it the Q, for quiet.','regional'],
+B763:['Boeing 767-300F','Boeing','Wide-body freighter','2 × GE CF6-80C2 turbofans','About 58 tons of cargo',3255,156.1,1995,2,'Still built as a freighter long after the passenger version ended.','wide'],
+B744:['Boeing 747-400F','Boeing','Wide-body freighter','4 × turbofans','About 124 tons of cargo',4445,211.4,1993,3,'The nose swings up so long cargo loads straight in.','wide'],
+B77W:['Boeing 777-300ER','Boeing','Wide-body airliner','2 × GE90-115B turbofans','About 396 seats',7370,212.6,2003,2,'Each GE90 engine is about as wide as a 737 cabin.','wide'],
+B789:['Boeing 787-9','Boeing','Wide-body airliner','2 × GEnx or Trent 1000 turbofans','About 296 seats',7565,197.3,2013,2,'About half the airframe by weight is carbon-fiber composite.','wide'],
+A359:['Airbus A350-900','Airbus','Wide-body airliner','2 × Rolls-Royce Trent XWB turbofans','About 315 seats',8100,212.4,2013,2,'Curved wingtips and a dark mask around the cockpit windows make it easy to pick out.','wide'],
+A388:['Airbus A380-800','Airbus','Double-deck airliner','4 × Trent 900 or GP7200 turbofans','About 525 seats',8000,261.6,2005,4,'The largest passenger airliner ever built, with two full decks.','wide'],
+C172:['Cessna 172 Skyhawk','Cessna','Light piston single','1 × Lycoming piston engine','4 seats',640,36.1,1955,1,'The most-produced aircraft in history, with over 44,000 built.','ga'],
+SR22:['Cirrus SR22','Cirrus','Light piston single','1 × Continental piston engine','4–5 seats',1000,38.3,2000,1,'Carries a parachute for the whole airframe.','ga'],
+PC12:['Pilatus PC-12','Pilatus','Single-engine turboprop','1 × PT6A turboprop','Up to 9 passengers',1800,53.3,1991,2,'A favorite for air ambulance and small-airfield charter work.','ga'],
+GLF5:['Gulfstream G550','Gulfstream','Long-range business jet','2 × Rolls-Royce BR710 turbofans','Up to 19 passengers',6750,93.5,1995,3,'Cruises as high as 51,000 ft, well above airline traffic.','biz'],
+F15:['F-15 Eagle','McDonnell Douglas / Boeing','Air-superiority fighter','2 × afterburning turbofans','1–2 crew',0,42.8,1972,4,'The Oregon Air National Guard flies F-15s out of Portland.','mil'],
+C17:['C-17 Globemaster III','Boeing','Military airlifter','4 × F117 turbofans','Up to about 85 tons of cargo',2400,169.8,1991,4,'Built to land on short, rough runways.','mil'],
+A119:['Leonardo AW119 Koala','Leonardo','Light single-engine helicopter','1 × PT6B turboshaft','Up to 7 passengers',515,35.5,1995,2,'Widely used for air medical flights.','heli'],
+R44:['Robinson R44','Robinson','Light piston helicopter','1 × Lycoming piston engine','4 seats',300,33,1990,2,'Common for training, tours and news work.','heli'],
+H60:['UH-60 Black Hawk','Sikorsky','Military utility helicopter','2 × T700 turboshafts','11 troops plus crew',320,53.7,1974,3,'In service since 1979 and still in production.','heli']
+};
+const HELI=new Set(['A119','R44','H60','EC35','EC45','B407','B06','R22','R66','AS50','B429','S76','H47','A139','A109']);
+const AIRLINE={ASA:'Alaska Airlines',QXE:'Horizon Air',SKW:'SkyWest Airlines',UAL:'United Airlines',DAL:'Delta Air Lines',AAL:'American Airlines',SWA:'Southwest Airlines',FDX:'FedEx Express',UPS:'UPS Airlines',JBU:'JetBlue',NKS:'Spirit Airlines',FFT:'Frontier Airlines',HAL:'Hawaiian Airlines',ACA:'Air Canada',WJA:'WestJet',GTI:'Atlas Air',BAW:'British Airways',DLH:'Lufthansa',KAL:'Korean Air',ANA:'All Nippon Airways',JAL:'Japan Airlines',AMX:'Aeromexico',VOI:'Volaris',EJA:'NetJets',LXJ:'Flexjet'};
+
+const DEMO=[
+{id:'d1',kind:'plane',cs:'ASA 418',reg:'N531AS',type:'B739',op:'Alaska Airlines',from:'San Diego (SAN)',to:'Portland (PDX)',brg:75,km:14,ft:9800,gs:250,trk:300,vr:-1200,sq:'3214'},
+{id:'d2',kind:'plane',cs:'SWA 2291',reg:'N8712L',type:'B38M',op:'Southwest Airlines',from:'Portland (PDX)',to:'Denver (DEN)',brg:112,km:32,ft:14500,gs:330,trk:105,vr:2200,sq:'2745'},
+{id:'d3',kind:'plane',cs:'DAL 2204',reg:'N508DZ',type:'A21N',op:'Delta Air Lines',from:'Seattle (SEA)',to:'Los Angeles (LAX)',brg:250,km:45,ft:34000,gs:455,trk:175,vr:0,sq:'1432'},
+{id:'d4',kind:'plane',cs:'QXE 2087',reg:'N647QX',type:'E75L',op:'Horizon Air',from:'Portland (PDX)',to:'Boise (BOI)',brg:95,km:22,ft:11200,gs:290,trk:100,vr:1800,sq:'5521'},
+{id:'d5',kind:'plane',cs:'FDX 1408',reg:'N127FE',type:'B763',op:'FedEx Express',from:'Memphis (MEM)',to:'Portland (PDX)',brg:60,km:26,ft:6000,gs:220,trk:280,vr:-900,sq:'4107'},
+{id:'d6',kind:'plane',cs:'GTI 8134',reg:'N492MC',type:'B744',op:'Atlas Air',from:'Anchorage (ANC)',to:'Los Angeles (LAX)',brg:300,km:60,ft:36000,gs:480,trk:165,vr:0,sq:'6630'},
+{id:'d7',kind:'plane',cs:'N734KT',reg:'N734KT',type:'C172',op:'Private owner',from:'Local flight',to:'',brg:200,km:9,ft:2500,gs:95,trk:40,vr:0,sq:'1200'},
+{id:'d8',kind:'plane',cs:'N412PC',reg:'N412PC',type:'PC12',op:'Charter operator',from:'Bend (BDN)',to:'Hillsboro (HIO)',brg:160,km:38,ft:15000,gs:250,trk:330,vr:-800,sq:'4471'},
+{id:'d9',kind:'plane',cs:'N550GD',reg:'N550GD',type:'GLF5',op:'Private owner',from:'Van Nuys (VNY)',to:'Seattle (BFI)',brg:20,km:50,ft:43000,gs:470,trk:350,vr:0,sq:'3360'},
+{id:'d10',kind:'plane',cs:'GUARD 21',reg:'',type:'F15',op:'Oregon Air National Guard',from:'Portland ANG Base',to:'Training area',brg:320,km:28,ft:18000,gs:420,trk:270,vr:3000,sq:'',mil:1},
+{id:'d11',kind:'heli',cs:'LIFE 12',reg:'N119LF',type:'A119',op:'Air medical operator',from:'Hospital transfer',to:'',brg:130,km:6,ft:1400,gs:120,trk:310,vr:0,sq:'1200'},
+{id:'d12',kind:'heli',cs:'N44KP',reg:'N44KP',type:'R44',op:'News and tour operator',from:'Local flight',to:'',brg:285,km:4,ft:900,gs:70,trk:90,vr:0,sq:'1200'},
+{id:'d13',kind:'sat',cs:'ISS',name:'International Space Station',op:'NASA, Roscosmos, ESA, JAXA, CSA',brg:240,km:900,m:420000,gs:14900,trk:65},
+{id:'d14',kind:'sat',cs:'NOAA-20',name:'Polar weather satellite',op:'NOAA',brg:10,km:1400,m:824000,gs:14400,trk:190},
+{id:'d15',kind:'ship',cs:'CASCADE PEARL',name:'Bulk carrier, 190 m',op:'Sample vessel',brg:335,km:11,m:0,gs:9,trk:320},
+{id:'d16',kind:'ship',cs:'RIVER CHIEF',name:'Tug with barge',op:'Sample vessel',brg:15,km:7,m:0,gs:6,trk:95}
+];
+const SATFACT={ISS:'Orbits about 260 miles up at roughly 17,100 mph, circling Earth every 93 minutes or so. It is the third-brightest object in the sky when it passes.'};
+
+const BADGES=[
+['first','First contact','Log your first catch',c=>c.length>=1],
+['types','Type rated','Log 5 different aircraft types',c=>new Set(c.filter(x=>x.type).map(x=>x.type)).size>=5],
+['dozen','Full logbook page','Log 12 catches',c=>c.length>=12],
+['heavy','Heavy metal','Log a wide-body',c=>c.some(x=>x.cls==='wide')],
+['rotor','Rotorhead','Log a helicopter',c=>c.some(x=>x.kind==='heli')],
+['orbit','Orbital','Log a satellite',c=>c.some(x=>x.kind==='sat')],
+['iss','Station keeper','Log the space station',c=>c.some(x=>x.kind==='sat'&&/^ISS/.test(x.cs))],
+['ship','Harbor watch','Log a ship',c=>c.some(x=>x.kind==='ship')],
+['rare','Rare find','Log something Rare or better',c=>c.some(x=>x.tier>=3)],
+['epic','Unicorn','Log an Epic',c=>c.some(x=>x.tier>=4)],
+['high','Flight level 400','Log an aircraft above 40,000 ft',c=>c.some(x=>(x.kind==='plane')&&x.ft>=40000)],
+['close','Close pass','Log an aircraft within 3 miles',c=>c.some(x=>(x.kind==='plane'||x.kind==='heli')&&x.mi<=3)],
+['mil','Guard duty','Log a military aircraft',c=>c.some(x=>x.cls==='mil'||x.mil)],
+['sky','Day and night','Log both the Sun and the Moon',c=>c.some(x=>x.cs==='SUN')&&c.some(x=>x.cs==='MOON')]
+];
+
+const S={mode:'demo',obs:{lat:45.52,lon:-122.68,alt:15},view:'point',look:{az:70,el:20},sens:false,basis:null,cam:false,
+  objs:[],sel:null,lock:null,cand:null,detail:null,filters:{plane:1,heli:1,sat:1,ship:1,sky:1},range:25,northUp:false,fov:60,
+  live:{},sats:[],src:0,st:{gps:'off',compass:'off',camera:'off',feed:'off',sats:'off'},down:false,absSeen:false,routes:{}};
+let LOG=[];
+try{const j=JSON.parse(localStorage.getItem('overhead.v1')||'{}');LOG=j.log||[];if(j.fov)S.fov=j.fov;if(j.range)S.range=j.range}catch(e){}
+const save=()=>{try{localStorage.setItem('overhead.v1',JSON.stringify({log:LOG,fov:S.fov,range:S.range}))}catch(e){}};
+
+/* ---------- geometry ---------- */
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+function ecef(lat,lon,h){const R=6371000+h,la=lat*D,lo=lon*D;return[R*Math.cos(la)*Math.cos(lo),R*Math.cos(la)*Math.sin(lo),R*Math.sin(la)]}
+function enu(lat,lon,alt){const a=ecef(S.obs.lat,S.obs.lon,S.obs.alt),b=ecef(lat,lon,alt),x=b[0]-a[0],y=b[1]-a[1],z=b[2]-a[2],la=S.obs.lat*D,lo=S.obs.lon*D;
+  return[-Math.sin(lo)*x+Math.cos(lo)*y,-Math.sin(la)*Math.cos(lo)*x-Math.sin(la)*Math.sin(lo)*y+Math.cos(la)*z,Math.cos(la)*Math.cos(lo)*x+Math.cos(la)*Math.sin(lo)*y+Math.sin(la)*z]}
+const dirOf=(az,el)=>[Math.sin(az*D)*Math.cos(el*D),Math.cos(az*D)*Math.cos(el*D),Math.sin(el*D)];
+const wrap=d=>((d+540)%360)-180;
+function adv(lat,lon,alt,gs,trk,vr,dt){const m=gs*0.5144*dt;return[lat+m*Math.cos(trk*D)/111320,lon+m*Math.sin(trk*D)/(111320*Math.cos(lat*D)),alt+(vr||0)*0.00508*dt]}
+function geo(o){
+  if(o.fix){o.az=o.fix[0];o.el=o.fix[1];o.d=dirOf(o.az,o.el);o.d2=o.d;o.dist=Infinity;o.g=Infinity;return}
+  const v=enu(o.lat,o.lon,o.alt),n=Math.hypot(v[0],v[1],v[2])||1;
+  o.dist=n;o.g=Math.hypot(v[0],v[1]);o.d=[v[0]/n,v[1]/n,v[2]/n];o.az=(Math.atan2(v[0],v[1])/D+360)%360;o.el=Math.asin(v[2]/n)/D;
+  const a=o.ahead||adv(o.lat,o.lon,o.alt,o.gs||0,o.trk||0,o.vr,5),w=enu(a[0],a[1],a[2]),m=Math.hypot(w[0],w[1],w[2])||1;o.d2=[w[0]/m,w[1]/m,w[2]/m];
+}
+function basis(){
+  if(S.sens&&S.basis)return S.basis;
+  const a=S.look.az*D,e=S.look.el*D;
+  return{c:[Math.sin(a)*Math.cos(e),Math.cos(a)*Math.cos(e),Math.sin(e)],r:[Math.cos(a),-Math.sin(a),0],u:[-Math.sin(a)*Math.sin(e),-Math.cos(a)*Math.sin(e),Math.cos(e)]};
+}
+const camAz=B=>(Math.atan2(B.c[0],B.c[1])/D+360)%360, camEl=B=>Math.asin(Math.max(-1,Math.min(1,B.c[2])))/D;
+function heading(B){const v=Math.abs(B.c[2])>0.8?B.u:B.c;return(Math.atan2(v[0],v[1])/D+360)%360}
+
+/* ---------- sun and moon (SunCalc method) ---------- */
+function celestial(date,lat,lon){
+  const d=date/864e5-0.5+2440588-2451545,e=D*23.4397,lw=-lon*D,phi=lat*D,th=D*(280.16+360.9856235*d)-lw;
+  const ra=(l,b)=>Math.atan2(Math.sin(l)*Math.cos(e)-Math.tan(b)*Math.sin(e),Math.cos(l)),dec=(l,b)=>Math.asin(Math.sin(b)*Math.cos(e)+Math.cos(b)*Math.sin(e)*Math.sin(l));
+  const pos=(r,de)=>{const H=th-r;return[(Math.atan2(Math.sin(H),Math.cos(H)*Math.sin(phi)-Math.tan(de)*Math.cos(phi))/D+180+360)%360,Math.asin(Math.sin(phi)*Math.sin(de)+Math.cos(phi)*Math.cos(de)*Math.cos(H))/D]};
+  const M=D*(357.5291+0.98560028*d),L=M+D*(1.9148*Math.sin(M)+0.02*Math.sin(2*M)+0.0003*Math.sin(3*M))+D*102.9372+Math.PI;
+  const mL=D*(218.316+13.176396*d),mM=D*(134.963+13.064993*d),mF=D*(93.272+13.22935*d),l=mL+D*6.289*Math.sin(mM),b=D*5.128*Math.sin(mF);
+  return{sun:pos(ra(L,0),dec(L,0)),moon:pos(ra(l,b),dec(l,b))};
+}
+
+/* ---------- objects ---------- */
+function tierOf(o){if(o.kind==='plane'||o.kind==='heli')return Math.max((TYPES[o.type]||[])[8]||1,o.mil?3:0);if(o.kind==='sat')return /^(ISS|CSS)/.test(o.cs)?3:2;if(o.kind==='ship')return 2;return 1}
+const typeName=o=>(TYPES[o.type]||[])[0]||o.name||o.type||KIND[o.kind];
+const keyOf=o=>o.kind+':'+(o.reg||o.cs||o.id);
+const logged=o=>LOG.some(x=>x.key===keyOf(o));
+function demoObjs(now){
+  return DEMO.map(o=>{
+    const P=300,tt=((now/1000+o.km*7)%P)-P/2,la0=S.obs.lat+o.km*Math.cos(o.brg*D)/111.32,lo0=S.obs.lon+o.km*Math.sin(o.brg*D)/(111.32*Math.cos(S.obs.lat*D));
+    const alt0=o.m!=null?o.m:o.ft*0.3048,p=adv(la0,lo0,alt0,o.gs,o.trk,o.kind==='sat'?0:o.vr,tt);
+    return{...o,lat:p[0],lon:p[1],alt:Math.max(0,p[2])};
+  });
+}
+function liveObjs(now){
+  const out=[];
+  for(const k in S.live){const o=S.live[k],dt=(now-o.t)/1000;if(dt>60){delete S.live[k];continue}
+    const p=adv(o.lat0,o.lon0,o.alt0,o.gs,o.trk,o.vr,dt);out.push({...o,lat:p[0],lon:p[1],alt:Math.max(0,p[2])})}
+  if(window.satellite&&S.sats.length){
+    const at=t=>{const g=satellite.gstime(t);return r=>{const pv=satellite.propagate(r,t);if(!pv||!pv.position)return null;const q=satellite.eciToGeodetic(pv.position,g);return[q.latitude/D,q.longitude/D,q.height*1000]}};
+    const t1=new Date(now),t2=new Date(now+5000),f1=at(t1),f2=at(t2);
+    for(const s of S.sats){try{const a=f1(s.rec),b=f2(s.rec);if(!a||!b)continue;
+      const o={id:'s'+s.name,kind:'sat',cs:s.name,name:'Satellite',op:'',lat:a[0],lon:a[1],alt:a[2],ahead:b};
+      const v1=ecef(a[0],a[1],a[2]),v2=ecef(b[0],b[1],b[2]);o.gs=Math.hypot(v2[0]-v1[0],v2[1]-v1[1],v2[2]-v1[2])/5/0.5144;
+      out.push(o)}catch(e){}}
+  }
+  return out;
+}
+function tick(){
+  const now=Date.now();let list=S.mode==='demo'?demoObjs(now):liveObjs(now);
+  const c=celestial(now,S.obs.lat,S.obs.lon);
+  list.push({id:'sun',kind:'sky',cs:'SUN',name:'The Sun',fix:c.sun},{id:'moon',kind:'sky',cs:'MOON',name:'The Moon',fix:c.moon});
+  for(const o of list){geo(o);o.tier=tierOf(o)}
+  S.all=list.filter(o=>!(o.kind==='sat'||o.kind==='sky')||o.el>0);
+  S.objs=S.all.filter(o=>S.filters[o.kind]);
+  if(S.lock&&!find(S.lock)){S.lock=null}
+  if(S.sel&&!find(S.sel)){S.sel=null}
+  updCard();updRare();
+  if(S.detail)updDetailLive();
+}
+const find=id=>(S.objs||[]).find(o=>o.id===id);
+
+/* ---------- formatting ---------- */
+const num=n=>Math.round(n).toLocaleString('en-US');
+const fAlt=o=>o.kind==='sky'?'—':o.kind==='ship'?'Sea level':o.kind==='sat'?num(o.alt/1609.34)+' mi':o.alt<15?'Ground':num(o.alt/0.3048)+' ft';
+const fSpd=o=>o.kind==='sky'?'—':num((o.gs||0)*1.1508)+' mph';
+const fDst=o=>!isFinite(o.dist)?'—':(o.dist/1609.34<10?(o.dist/1609.34).toFixed(1):num(o.dist/1609.34))+' mi';
+const compass=a=>['N','NE','E','SE','S','SW','W','NW'][Math.round(a/45)%8];
+
+/* ---------- drawing ---------- */
+function fit(c){const r=c.getBoundingClientRect(),d=window.devicePixelRatio||1,w=Math.round(r.width*d),h=Math.round(r.height*d);if(c.width!==w||c.height!==h){c.width=w;c.height=h}const x=c.getContext('2d');x.setTransform(d,0,0,d,0,0);return[x,r.width,r.height]}
+function glyph(x,kind,px,py,s,rot,col,fill){
+  x.save();x.translate(px,py);x.strokeStyle=col;x.fillStyle=col;x.lineWidth=1.6;x.lineJoin='round';
+  if(kind==='plane'){x.rotate(rot);x.beginPath();const p=[[0,-1],[.18,-.25],[1,.3],[1,.5],[.18,.25],[.15,.75],[.45,1],[0,.9]];x.moveTo(0,-s);for(let i=1;i<p.length;i++)x.lineTo(p[i][0]*s,p[i][1]*s);for(let i=p.length-2;i>=0;i--)x.lineTo(-p[i][0]*s,p[i][1]*s);x.closePath();fill?x.fill():x.stroke()}
+  else if(kind==='heli'){x.beginPath();x.arc(0,0,s*.45,0,7);fill?x.fill():x.stroke();x.beginPath();x.moveTo(-s,-s);x.lineTo(s,s);x.moveTo(s,-s);x.lineTo(-s,s);x.stroke()}
+  else if(kind==='sat'){x.rotate(.6);x.fillRect(-s*.3,-s*.3,s*.6,s*.6);x.strokeRect(-s*1.1,-s*.22,s*.6,s*.44);x.strokeRect(s*.5,-s*.22,s*.6,s*.44)}
+  else if(kind==='ship'){x.rotate(rot);x.beginPath();x.moveTo(0,-s);x.lineTo(s*.5,-s*.2);x.lineTo(s*.5,s);x.lineTo(-s*.5,s);x.lineTo(-s*.5,-s*.2);x.closePath();fill?x.fill():x.stroke()}
+  else{x.beginPath();x.arc(0,0,s,0,7);x.globalAlpha=.25;x.fill();x.globalAlpha=1;x.beginPath();x.arc(0,0,s*.6,0,7);x.fill()}
+  x.restore();
+}
+let rnd=7;const rand=()=>(rnd=(rnd*16807)%2147483647)/2147483647;
+const STARS=Array.from({length:150},()=>[dirOf(rand()*360,Math.asin(rand())/D),rand()]);
+let HITS=[];
+function proj(d,B,W,H,f){const z=dot(d,B.c);if(z<=0.05)return null;return[W/2+dot(d,B.r)/z*f,H/2-dot(d,B.u)/z*f]}
+
+function drawAR(now){
+  const [x,W,H]=fit($('#ar'));if(!W)return;
+  const B=basis(),f=(H/2)/Math.tan(S.fov*D/2),az=camAz(B),el=camEl(B);
+  x.clearRect(0,0,W,H);
+  if(!S.cam){
+    const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,COL.hi);g.addColorStop(1,COL.lo);x.fillStyle=g;x.fillRect(0,0,W,H);
+    x.fillStyle=COL.ink;for(const s of STARS){const p=proj(s[0],B,W,H,f);if(p){x.globalAlpha=.25+s[1]*.6;x.fillRect(p[0],p[1],1.4,1.4)}}x.globalAlpha=1;
+    const hz=[];for(let a=-80;a<=80;a+=10){const p=proj(dirOf(az+a,0),B,W,H,f);if(p)hz.push(p)}
+    if(hz.length>1){hz.sort((a,b)=>a[0]-b[0]);x.beginPath();x.moveTo(-50,hz[0][1]);for(const p of hz)x.lineTo(p[0],p[1]);x.lineTo(W+50,hz[hz.length-1][1]);x.lineTo(W+50,H+50);x.lineTo(-50,H+50);x.closePath();x.fillStyle=COL.ground;x.fill();
+      x.beginPath();x.moveTo(-50,hz[0][1]);for(const p of hz)x.lineTo(p[0],p[1]);x.lineTo(W+50,hz[hz.length-1][1]);x.strokeStyle=COL.amber;x.globalAlpha=.5;x.lineWidth=1;x.stroke();x.globalAlpha=1}
+    else if(el<-20){x.fillStyle=COL.ground;x.fillRect(0,0,W,H)}
+  }
+  // objects
+  HITS=[];let best=null,bestA=99;const vis=[];
+  for(const o of S.objs){
+    if(o.el<-4)continue;
+    if(isFinite(o.g)&&o.kind!=='sat'&&o.g>S.range*1609.34*1.6&&o.id!==S.sel)continue;
+    const ang=Math.acos(Math.max(-1,Math.min(1,dot(o.d,B.c))))/D;
+    if(ang<bestA){bestA=ang;best=o}
+    const p=proj(o.d,B,W,H,f);if(!p||p[0]<-30||p[0]>W+30||p[1]<-30||p[1]>H+30)continue;
+    const p2=proj(o.d2,B,W,H,f);vis.push([o,p,p2?Math.atan2(p2[0]-p[0],-(p2[1]-p[1])):0,ang]);
+  }
+  vis.sort((a,b)=>a[3]-b[3]);
+  x.font='700 11px "B612 Mono",monospace';x.textBaseline='middle';
+  vis.forEach(([o,p,rot],i)=>{
+    const on=o.id===S.lock||o.id===S.sel,col=on?COL.lock:COL[o.kind];
+    glyph(x,o.kind,p[0],p[1],o.kind==='sky'?13:on?11:9,rot,col,true);
+    if(o.tier>=3&&!on){x.strokeStyle=COL.t4;x.lineWidth=1;x.beginPath();x.arc(p[0],p[1],16,0,7);x.stroke()}
+    if(i<8||on){x.fillStyle=col;x.fillText(o.cs,p[0]+16,p[1]-6);x.fillStyle=COL.mute;x.font='400 10px "B612 Mono",monospace';x.fillText(isFinite(o.dist)?fDst(o):o.name,p[0]+16,p[1]+7);x.font='700 11px "B612 Mono",monospace'}
+    HITS.push([p[0],p[1],o.id]);
+  });
+  // lock logic
+  if(best&&bestA<7){
+    if(!S.cand||S.cand.id!==best.id)S.cand={id:best.id,t:now};
+    else if(S.lock!==best.id&&now-S.cand.t>650){S.lock=best.id;try{navigator.vibrate&&navigator.vibrate(25)}catch(e){}updCard()}
+  }else{S.cand=null;if(S.lock){S.lock=null;updCard()}}
+  // reticle
+  const cx=W/2,cy=H/2;x.strokeStyle=S.lock?COL.lock:COL.ink;x.lineWidth=1.5;x.globalAlpha=S.lock?1:.7;
+  x.beginPath();x.arc(cx,cy,30,0,7);x.stroke();
+  for(const a of[0,90,180,270]){x.beginPath();x.moveTo(cx+Math.cos(a*D)*30,cy+Math.sin(a*D)*30);x.lineTo(cx+Math.cos(a*D)*42,cy+Math.sin(a*D)*42);x.stroke()}
+  x.globalAlpha=1;
+  if(S.cand&&!S.lock){x.strokeStyle=COL.lock;x.lineWidth=3;x.beginPath();x.arc(cx,cy,36,-Math.PI/2,-Math.PI/2+Math.min(1,(now-S.cand.t)/650)*Math.PI*2);x.stroke()}
+  // heading tape
+  x.fillStyle='rgba(10,15,42,.72)';x.fillRect(0,0,W,46);
+  const ppd=f*D;x.textAlign='center';
+  for(let a=Math.floor((az-50)/5)*5;a<=az+50;a+=5){const px=cx+wrap(a-az)*ppd;if(px<0||px>W)continue;const m=((a%360)+360)%360,big=m%15===0;
+    x.strokeStyle=COL.mute;x.lineWidth=1;x.beginPath();x.moveTo(px,46);x.lineTo(px,big?34:40);x.stroke();
+    if(big){const card=m%45===0;x.fillStyle=card?COL.amber:COL.mute;x.font=(card?'700 12px':'400 10px')+' "B612 Mono",monospace';x.fillText(card?compass(m):String(m).padStart(3,'0'),px,22)}}
+  x.fillStyle=COL.lock;x.beginPath();x.moveTo(cx,46);x.lineTo(cx-6,54);x.lineTo(cx+6,54);x.closePath();x.fill();
+  x.font='700 12px "B612 Mono",monospace';x.fillStyle=COL.ink;x.textAlign='left';x.fillText('HDG '+String(Math.round(az)%360).padStart(3,'0')+'°',12,84);
+  x.textAlign='right';x.fillText('EL '+(el>=0?'+':'')+Math.round(el)+'°',W-12,84);x.textAlign='left';
+  // guide to selected target
+  const t=S.sel&&find(S.sel);
+  if(t){const p=proj(t.d,B,W,H,f);if(!p||p[0]<20||p[0]>W-20||p[1]<60||p[1]>H-20){
+    const da=wrap(t.az-az),de=t.el-el,n=Math.hypot(da,de)||1,ax=cx+da/n*84,ay=cy-de/n*84,r=Math.atan2(da,de);
+    x.save();x.translate(ax,ay);x.rotate(r);x.fillStyle=COL.amber;x.beginPath();x.moveTo(0,-14);x.lineTo(10,8);x.lineTo(0,3);x.lineTo(-10,8);x.closePath();x.fill();x.restore();
+    x.fillStyle=COL.amber;x.textAlign='center';x.font='700 12px "B612 Mono",monospace';
+    x.fillText(t.cs+'  '+Math.abs(Math.round(da))+'° '+(da>0?'right':'left')+', '+Math.abs(Math.round(de))+'° '+(de>0?'up':'down'),cx,cy+118);x.textAlign='left'}}
+}
+
+let RHITS=[];
+function drawRadar(){
+  const [x,W,H]=fit($('#radar'));if(!W)return;
+  const B=basis(),hd=heading(B),rot=S.northUp?0:hd,cx=W/2,cy=(H-60)/2+4,R=Math.max(40,Math.min(W/2-26,(H-60)/2-26)),rm=S.range*1609.34;
+  x.clearRect(0,0,W,H);x.fillStyle=COL.hi;x.fillRect(0,0,W,H);
+  x.strokeStyle=COL.line;x.lineWidth=1;x.font='400 10px "B612 Mono",monospace';x.textBaseline='middle';x.textAlign='center';
+  for(let i=1;i<=3;i++){x.beginPath();x.arc(cx,cy,R*i/3,0,7);x.stroke();x.fillStyle=COL.mute;x.fillText(Math.round(S.range*i/3)+' mi',cx,cy-R*i/3+9)}
+  for(let a=0;a<360;a+=30){const r=(a-rot)*D;x.beginPath();x.moveTo(cx+Math.sin(r)*R,cy-Math.cos(r)*R);x.lineTo(cx+Math.sin(r)*(R+(a%90?4:8)),cy-Math.cos(r)*(R+(a%90?4:8)));x.stroke()}
+  x.font='700 12px "B612 Mono",monospace';
+  for(const [a,n] of[[0,'N'],[90,'E'],[180,'S'],[270,'W']]){const r=(a-rot)*D;x.fillStyle=a?COL.mute:COL.amber;x.fillText(n,cx+Math.sin(r)*(R+17),cy-Math.cos(r)*(R+17))}
+  // view cone
+  const lookA=(camAz(B)-rot)*D,half=S.fov*D/2*Math.min(1,W/H*1.4);
+  x.beginPath();x.moveTo(cx,cy);x.arc(cx,cy,R,lookA-Math.PI/2-half,lookA-Math.PI/2+half);x.closePath();x.fillStyle=COL.lock;x.globalAlpha=.12;x.fill();x.globalAlpha=1;
+  x.fillStyle=COL.ink;x.beginPath();x.arc(cx,cy,4,0,7);x.fill();
+  RHITS=[];x.textAlign='left';x.font='700 10px "B612 Mono",monospace';
+  for(const o of S.objs){if(o.kind==='sky')continue;
+    const out=o.g>rm,r=Math.min(o.g/rm,1)*R,a=(o.az-rot)*D,px=cx+Math.sin(a)*r,py=cy-Math.cos(a)*r,on=o.id===S.sel||o.id===S.lock;
+    if(out&&o.kind!=='sat'&&!on)continue;
+    x.globalAlpha=out?.55:1;glyph(x,o.kind,px,py,on?10:8,((o.trk||0)-rot)*D,on?COL.lock:COL[o.kind],true);
+    if(!out||on){x.fillStyle=on?COL.lock:COL.mute;x.fillText(o.cs,px+12,py)}
+    x.globalAlpha=1;RHITS.push([px,py,o.id]);
+  }
+}
+function frame(now){
+  const t=Date.now();
+  if(S.view==='point')drawAR(t);else if(S.view==='radar')drawRadar();
+  requestAnimationFrame(frame);
+}
+
+/* ---------- UI ---------- */
+let cardId=null;
+function updCard(){
+  const o=find(S.lock)||find(S.sel),el=$('#card');
+  if(!o){if(!el.hidden){el.hidden=true;cardId=null}return}
+  if(cardId!==o.id){cardId=o.id;el.hidden=false;$('#c-cs').textContent=o.cs;$('#c-sub').textContent=typeName(o);
+    const t=$('#c-tier');t.textContent=TIER[o.tier];t.className='pill t'+o.tier;$('#c-more').dataset.id=o.id;$('#c-log').dataset.id=o.id;updLogBtn(o)}
+  $('#c-alt').textContent=fAlt(o);$('#c-spd').textContent=fSpd(o);$('#c-dst').textContent=isFinite(o.dist)?fDst(o):compass(o.az)+' sky';
+}
+function updLogBtn(o){const b=$('#c-log'),done=logged(o);b.disabled=done;b.textContent=done?'In your logbook':'Log it  +'+PTS[o.tier]}
+function updRare(){
+  const r=(S.objs||[]).filter(o=>o.tier>=3&&!logged(o)&&o.id!==S.lock&&o.id!==S.sel).sort((a,b)=>b.tier-a.tier)[0],el=$('#rare');
+  if(!r){el.hidden=true;return}
+  if(el.dataset.id!==r.id||el.hidden){el.dataset.id=r.id;el.innerHTML='<b>'+TIER[r.tier]+' overhead</b>'+esc(typeName(r))+' · Find it';el.hidden=false}
+}
+let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3800)}
+function setView(v){S.view=v;for(const n of['point','radar','list','hangar'])$('#v-'+n).hidden=n!==v;$$('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.view===v));if(v==='list')renderList();if(v==='hangar')renderHangar()}
+function renderFilters(){$('#filters').innerHTML=Object.keys(KIND).map(k=>'<button data-filter="'+k+'" aria-pressed="'+!!S.filters[k]+'"><i class="dot" style="background:var(--k-'+k+')"></i>'+KIND[k]+(k==='sky'?'':'s')+'</button>').join('')}
+function renderList(){
+  const l=[...S.objs].sort((a,b)=>(isFinite(a.dist)?a.dist:9e12)-(isFinite(b.dist)?b.dist:9e12));
+  $('#list').innerHTML=l.length?l.map(o=>'<button class="item" data-act="detail" data-id="'+esc(o.id)+'"><i class="dot" style="background:var(--k-'+o.kind+')"></i><span class="mid"><b>'+esc(o.cs)+(logged(o)?' ✓':'')+'</b><span>'+esc(typeName(o))+(o.op?' · '+esc(o.op):'')+'</span></span><span class="end"><b>'+(isFinite(o.dist)?fDst(o):'—')+'</b>'+compass(o.az)+' · '+(o.kind==='plane'||o.kind==='heli'?fAlt(o):'<span class="t'+o.tier+'">'+TIER[o.tier]+'</span>')+'</span></button>').join('')
+    :'<div class="empty">Nothing in range with these filters. Turn a filter back on, or widen the range on the Radar tab.</div>';
+}
+function renderHangar(){
+  const pts=LOG.reduce((s,x)=>s+x.pts,0),lvl=Math.floor(Math.sqrt(pts/50))+1,lo=50*(lvl-1)**2,hi=50*lvl**2,types=new Set(LOG.filter(x=>x.type&&TYPES[x.type]).map(x=>x.type)),nT=Object.keys(TYPES).length;
+  const got=BADGES.filter(b=>b[3](LOG)).length;
+  $('#v-hangar').innerHTML='<h2>Spotter rank</h2><div class="score"><div><span class="lbl">Level</span><b>'+lvl+'</b></div><div><span class="lbl">Points</span><b>'+num(pts)+'</b></div><div><span class="lbl">Catches</span><b>'+LOG.length+'</b></div></div>'
+   +'<div class="bar" aria-label="Progress to next level"><i style="width:'+Math.round((pts-lo)/(hi-lo)*100)+'%"></i></div><p class="note">'+num(hi-pts)+' points to level '+(lvl+1)+'. Rare catches are worth '+PTS[3]+', Epic '+PTS[4]+'.</p>'
+   +'<h2>Badges · '+got+' of '+BADGES.length+'</h2><div class="badges">'+BADGES.map(b=>{const on=b[3](LOG);return'<div class="badge'+(on?' on':'')+'"><em>'+(on?'Earned':'Locked')+'</em><b>'+b[1]+'</b><span>'+b[2]+'</span></div>'}).join('')+'</div>'
+   +'<h2>Type guide · '+types.size+' of '+nT+'</h2><div class="bar"><i style="width:'+Math.round(types.size/nT*100)+'%"></i></div>'
+   +'<h2>Logbook</h2>'+(LOG.length?'<div class="list">'+[...LOG].reverse().slice(0,40).map(x=>'<div class="item"><i class="dot" style="background:var(--k-'+x.kind+')"></i><span class="mid"><b>'+esc(x.cs)+'</b><span>'+esc(x.name)+'</span></span><span class="end"><b class="t'+x.tier+'">+'+x.pts+'</b>'+new Date(x.ts).toLocaleDateString('en-US',{month:'short',day:'numeric'})+'</span></div>').join('')+'</div><div class="row" style="margin-top:14px"><button class="btn" data-act="reset" id="reset-btn">Clear logbook</button></div>'
+     :'<div class="empty">No catches yet. On the Point tab, hold the ring on an aircraft until it locks, then tap Log it.</div>');
+}
+function logCatch(id){
+  const o=find(id);if(!o||logged(o))return;
+  const before=BADGES.filter(b=>b[3](LOG)).map(b=>b[0]),T=TYPES[o.type]||[];
+  LOG.push({key:keyOf(o),cs:o.cs,name:typeName(o),kind:o.kind,type:o.type||'',cls:T[10]||'',mil:o.mil?1:0,tier:o.tier,pts:PTS[o.tier],ts:Date.now(),ft:Math.round(o.alt/0.3048)||0,mi:isFinite(o.dist)?o.dist/1609.34:0});save();
+  const nb=BADGES.filter(b=>b[3](LOG)&&!before.includes(b[0])).map(b=>b[1]);
+  toast('Logged '+o.cs+'  +'+PTS[o.tier]+(nb.length?' · Badge earned: '+nb.join(', '):''));
+  try{navigator.vibrate&&navigator.vibrate([20,40,20])}catch(e){}
+  if(cardId===o.id)updLogBtn(o);if(S.detail===id)openDetail(id);
+}
+function openDetail(id){
+  const o=find(id);if(!o)return;S.detail=id;const T=TYPES[o.type],done=logged(o),air=o.kind==='plane'||o.kind==='heli';
+  let h='<div class="sheet-h"><div><h1>'+esc(o.cs)+'</h1><p>'+esc(typeName(o))+(o.op?' · '+esc(o.op):'')+'</p></div><em class="pill t'+o.tier+'">'+TIER[o.tier]+'</em><button class="icon-btn" data-act="close" aria-label="Close">✕</button></div>';
+  h+='<div id="d-route">'+routeHtml(o)+'</div><dl class="stats" id="d-live"></dl>';
+  h+='<div class="row" style="margin:14px 0"><button class="btn" data-act="guide" data-id="'+esc(o.id)+'">Guide me to it</button><button class="btn go" data-act="log" data-id="'+esc(o.id)+'"'+(done?' disabled':'')+'>'+(done?'In your logbook':'Log it  +'+PTS[o.tier])+'</button></div>';
+  if(T){h+='<h2>About the '+esc(T[0])+'</h2><dl class="spec"><dt>Role</dt><dd>'+T[2]+'</dd><dt>Built by</dt><dd>'+T[1]+'</dd><dt>Power</dt><dd>'+T[3]+'</dd><dt>Carries</dt><dd>'+T[4]+'</dd>'+(T[5]?'<dt>Range</dt><dd>'+num(T[5]*1.1508)+' mi</dd>':'')+'<dt>Flying since</dt><dd>'+T[7]+'</dd><dt>'+(T[10]==='heli'?'Rotor':'Wingspan')+'</dt><dd>'+T[6]+' ft</dd></dl>'
+    +'<div class="span-bar"><span class="lbl">Size next to an A380 (261.6 ft)</span><div class="bar"><i style="width:'+Math.round(T[6]/261.6*100)+'%"></i></div></div><p class="fact">'+T[9]+'</p><p class="note">Typical figures. Variants and airline layouts differ.</p>'}
+  else if(o.kind==='sat'){h+='<h2>About this satellite</h2><p class="fact">'+(SATFACT[o.cs.split(' ')[0]]||'Satellites show up best in the hour or two after sunset or before sunrise, when the sky is dark but they still catch sunlight.')+'</p>'}
+  else if(o.kind==='ship'){h+='<h2>About this vessel</h2><p class="fact">'+esc(o.name)+'. Ships broadcast their position over AIS, the marine cousin of the ADS-B signal aircraft send.</p>'}
+  else if(o.kind==='sky'){h+='<h2>Compass check</h2><p class="fact">Aim at '+esc(o.name)+' and see whether its marker sits on top of it. If it does, your compass and zoom are dialed in.'+(o.cs==='SUN'?' Never look straight at the Sun, and do not point your camera at it for long.':'')+'</p>'}
+  else if(air){h+='<h2>Aircraft type</h2><p class="note">'+(o.type?'Type code '+esc(o.type)+' is not in the type guide yet.':'This aircraft is not reporting a type code.')+'</p>'}
+  if(S.mode==='demo')h+='<p class="note">Sample data. Go live to see real traffic.</p>';
+  $('#detail-p').innerHTML=h;$('#detail').hidden=false;updDetailLive();
+  if(S.mode==='live'&&air&&o.cs&&!S.routes[o.cs])lookupRoute(o);
+}
+function routeHtml(o){
+  const r=S.routes[o.cs]||(o.from?{from:o.from,to:o.to}:null);if(!r||!r.from)return'';
+  return'<div class="route"><span>'+esc(r.from)+'</span>'+(r.to?'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12h16M14 6l6 6-6 6"/></svg><span>'+esc(r.to)+'</span>':'')+'</div>';
+}
+async function lookupRoute(o){
+  S.routes[o.cs]={};
+  try{const j=await(await fetch('https://api.adsbdb.com/v0/callsign/'+encodeURIComponent(o.cs.replace(/\s/g,'')))).json(),f=j&&j.response&&j.response.flightroute;
+    if(f&&f.origin){const n=a=>(a.municipality||a.name||'')+' ('+(a.iata_code||a.icao_code||'')+')';S.routes[o.cs]={from:n(f.origin),to:f.destination?n(f.destination):''};
+      if(S.detail===o.id){const el=$('#d-route');if(el)el.innerHTML=routeHtml(o)}}}catch(e){}
+}
+function updDetailLive(){
+  const o=find(S.detail),el=$('#d-live');if(!el)return;if(!o){el.innerHTML='<div style="grid-column:1/-1" class="note">Out of range now.</div>';return}
+  const c=(a,b)=>'<div><dt>'+a+'</dt><dd>'+b+'</dd></div>',air=o.kind==='plane'||o.kind==='heli';
+  el.innerHTML=c('Altitude',fAlt(o))+c('Speed',fSpd(o))+c('Distance',fDst(o))+c('Bearing',Math.round(o.az)+'° '+compass(o.az))+c('Elevation',(o.el>=0?'+':'')+Math.round(o.el)+'°')
+   +(air?c('Heading',Math.round(o.trk||0)+'° '+compass(o.trk||0))+c('Climb',(o.vr>0?'+':'')+num(o.vr||0)+' fpm')+c('Squawk',esc(o.sq||'—'))+c('Tail no.',esc(o.reg||'—')):o.trk!=null?c('Heading',Math.round(o.trk)+'° '+compass(o.trk)):'');
+}
+function renderSensors(){
+  const lab={gps:'Location (GPS)',compass:'Compass and tilt',camera:'Camera view',feed:'Flight feed',sats:'Satellite orbits'},txt={on:'On',off:'Off',wait:'Starting',bad:'Unavailable'},cls={on:'ok',off:'off',wait:'off',bad:'bad'};
+  $('#sensor-rows').innerHTML=Object.keys(lab).map(k=>'<div class="stat-row"><span>'+lab[k]+'</span><span class="'+cls[S.st[k]]+'">'+txt[S.st[k]]+'</span></div>').join('');
+  const live=S.mode==='live';$('#mode').className='chip'+(live?' live':'');$('#mode span').textContent=live?'Live':'Sample';
+  $('#where').textContent=live?'Live · '+S.obs.lat.toFixed(2)+', '+S.obs.lon.toFixed(2):'Sample sky · Portland, OR';
+  $('#hint').textContent=S.sens?'Aim at the sky':'Drag to look around';$('#live-btn').textContent=live?'Restart sensors':'Go live';
+}
+
+/* ---------- live mode ---------- */
+function onOri(ev){
+  if(ev.type==='deviceorientationabsolute')S.absSeen=true;else if(S.absSeen&&ev.webkitCompassHeading==null)return;
+  let al=ev.alpha;if(ev.webkitCompassHeading!=null)al=360-ev.webkitCompassHeading;if(al==null||ev.beta==null)return;
+  const a=al*D,b=ev.beta*D,g=(ev.gamma||0)*D,cA=Math.cos(a),sA=Math.sin(a),cB=Math.cos(b),sB=Math.sin(b),cG=Math.cos(g),sG=Math.sin(g);
+  const nb={r:[cA*cG-sA*sB*sG,cG*sA+cA*sB*sG,-cB*sG],u:[-cB*sA,cA*cB,sB],c:[-(cG*sA*sB+cA*sG),-(sA*sG-cA*cG*sB),-(cB*cG)]};
+  if(S.basis){const k=.25;for(const n of'ruc')for(let i=0;i<3;i++)nb[n][i]=S.basis[n][i]+(nb[n][i]-S.basis[n][i])*k}
+  S.basis=nb;if(!S.sens){S.sens=true;S.st.compass='on';renderSensors()}
+}
+async function goLive(){
+  S.st.gps='wait';renderSensors();
+  try{if(typeof DeviceOrientationEvent!=='undefined'&&DeviceOrientationEvent.requestPermission)await DeviceOrientationEvent.requestPermission()}catch(e){}
+  let pos;
+  try{pos=await new Promise((res,rej)=>navigator.geolocation?navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:12000}):rej(new Error('no gps')))}
+  catch(e){S.st.gps='bad';renderSensors();toast('Location is blocked in this preview. Open the hosted copy on your phone to go live.');return}
+  const setPos=p=>{S.obs={lat:p.coords.latitude,lon:p.coords.longitude,alt:p.coords.altitude||30}};
+  setPos(pos);S.mode='live';S.st.gps='on';S.lock=S.sel=null;S.live={};
+  try{navigator.geolocation.watchPosition(setPos,()=>{},{enableHighAccuracy:true})}catch(e){}
+  window.addEventListener('deviceorientationabsolute',onOri);window.addEventListener('deviceorientation',onOri);
+  setTimeout(()=>{if(!S.sens){S.st.compass='bad';renderSensors()}},3000);
+  try{const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false}),v=$('#cam');v.srcObject=st;v.hidden=false;await v.play();S.cam=true;S.st.camera='on'}catch(e){S.st.camera='bad'}
+  try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}
+  renderSensors();$('#settings').hidden=true;tick();poll();loadSats();
+}
+function goDemo(){S.mode='demo';S.obs={lat:45.52,lon:-122.68,alt:15};S.sens=false;S.cam=false;$('#cam').hidden=true;window.removeEventListener('deviceorientationabsolute',onOri);window.removeEventListener('deviceorientation',onOri);
+  try{const v=$('#cam');v.srcObject&&v.srcObject.getTracks().forEach(t=>t.stop());v.srcObject=null}catch(e){}
+  for(const k in S.st)S.st[k]='off';clearTimeout(pollT);renderSensors();tick();aimAtFirst()}
+const opOf=cs=>AIRLINE[(cs||'').slice(0,3)]||'';
+function readsb(j){return(j.ac||[]).filter(a=>a.lat!=null&&a.lon!=null).map(a=>{const cs=(a.flight||a.r||a.hex||'').trim(),t=a.t||'';
+  return{id:'a'+a.hex,kind:(a.category==='A7'||HELI.has(t))?'heli':'plane',cs:cs.toUpperCase(),reg:a.r||'',type:t,op:a.ownOp||opOf(cs),mil:(a.dbFlags&1)?1:0,
+    lat0:a.lat,lon0:a.lon,alt0:(a.alt_baro==='ground'?0:(a.alt_baro??a.alt_geom??0))*0.3048,gs:a.gs||0,trk:a.track??a.true_heading??0,vr:a.baro_rate??a.geom_rate??0,sq:a.squawk||''}})}
+function osky(j){return(j.states||[]).filter(s=>s[5]!=null&&s[6]!=null).map(s=>{const cs=(s[1]||s[0]||'').trim();
+  return{id:'a'+s[0],kind:s[17]===8?'heli':'plane',cs:cs.toUpperCase(),reg:'',type:'',op:opOf(cs),lat0:s[6],lon0:s[5],alt0:s[8]?0:(s[7]??s[13]??0),gs:(s[9]||0)*1.944,trk:s[10]||0,vr:(s[11]||0)*196.85,sq:s[14]||''}})}
+let pollT;
+async function poll(){
+  clearTimeout(pollT);if(S.mode!=='live')return;
+  const la=S.obs.lat.toFixed(2),lo=S.obs.lon.toFixed(2),nm=Math.min(250,Math.round(S.range*1.6*0.869)),dg=S.range*1.6/69,dl=dg/Math.cos(S.obs.lat*D);
+  const SRC=[['https://api.adsb.lol/v2/point/'+la+'/'+lo+'/'+nm,readsb],['https://api.airplanes.live/v2/point/'+la+'/'+lo+'/'+nm,readsb],
+    ['https://opensky-network.org/api/states/all?lamin='+(S.obs.lat-dg).toFixed(2)+'&lomin='+(S.obs.lon-dl).toFixed(2)+'&lamax='+(S.obs.lat+dg).toFixed(2)+'&lomax='+(S.obs.lon+dl).toFixed(2),osky]];
+  let ok=false;
+  for(let i=0;i<SRC.length&&!ok;i++){const k=(S.src+i)%SRC.length;
+    try{const r=await fetch(SRC[k][0]);if(!r.ok)throw 0;const list=SRC[k][1](await r.json()),t=Date.now();for(const o of list){o.t=t;S.live[o.id]=o}S.src=k;ok=true}catch(e){}}
+  const was=S.st.feed;S.st.feed=ok?'on':'bad';if(was!==S.st.feed){renderSensors();if(!ok)toast('Flight feed is not answering. Sun, Moon and satellites still work.')}
+  pollT=setTimeout(poll,ok?10000:30000);
+}
+async function loadSats(){
+  if(!window.satellite){S.st.sats='bad';renderSensors();return}
+  try{const got=[];
+    for(const [g,max,re] of[['stations',2,/^(ISS \(ZARYA\)|CSS \(TIANHE\))/],['visual',70,/./]]){
+      const tx=await(await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP='+g+'&FORMAT=tle')).text(),L=tx.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);let n=0;
+      for(let i=0;i+2<L.length&&n<max;i+=3){if(!re.test(L[i])||got.some(s=>s.l1===L[i+1]))continue;let name=L[i].replace(/\s*\(.*\)/,'');got.push({name,l1:L[i+1],rec:satellite.twoline2satrec(L[i+1],L[i+2])});n++}}
+    S.sats=got;S.st.sats=got.length?'on':'bad'}catch(e){S.st.sats='bad'}
+  renderSensors();
+}
+
+/* ---------- events ---------- */
+function aimAtFirst(){const o=find('d1');if(o)S.look={az:o.az-6,el:Math.max(4,o.el-3)}}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;const id=b.dataset.id,a=b.dataset.act;
+  if(b.dataset.view)return setView(b.dataset.view);
+  if(b.dataset.range){S.range=+b.dataset.range;save();updRange();if(S.mode==='live')poll();return}
+  if(b.dataset.filter){S.filters[b.dataset.filter]^=1;renderFilters();tick();renderList();return}
+  if(a==='detail')openDetail(id);
+  else if(a==='log')logCatch(id);
+  else if(a==='guide'){S.sel=id;$('#detail').hidden=true;S.detail=null;setView('point');cardId=null;updCard()}
+  else if(a==='close'){b.closest('.sheet').hidden=true;S.detail=null}
+  else if(a==='settings'){renderSensors();$('#settings').hidden=false}
+  else if(a==='live')goLive();
+  else if(a==='demo'){goDemo();$('#settings').hidden=true}
+  else if(a==='north'){S.northUp=!S.northUp;b.setAttribute('aria-pressed',S.northUp)}
+  else if(a==='reset'){if(b.dataset.sure){LOG=[];save();renderHangar();toast('Logbook cleared')}else{b.dataset.sure=1;b.textContent='Tap again to clear everything'}}
+});
+$$('.sheet').forEach(s=>s.addEventListener('click',e=>{if(e.target===s){s.hidden=true;S.detail=null}}));
+function updRange(){$$('#range button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.range===S.range))}
+$('#fov').addEventListener('input',e=>{S.fov=+e.target.value;$('#fov-v').textContent=S.fov+'°';save()});
+let drag=null,pdown=false;
+document.addEventListener('pointerdown',()=>pdown=true);document.addEventListener('pointerup',()=>pdown=false);document.addEventListener('pointercancel',()=>pdown=false);
+const ar=$('#ar');
+ar.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,m:0};try{ar.setPointerCapture(e.pointerId)}catch(_){}});
+ar.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.m+=Math.abs(dx)+Math.abs(dy);drag.x=e.clientX;drag.y=e.clientY;
+  if(!S.sens){const k=1/((ar.clientHeight/2)/Math.tan(S.fov*D/2)*D);S.look.az=(S.look.az-dx*k+360)%360;S.look.el=Math.max(-30,Math.min(88,S.look.el+dy*k))}});
+ar.addEventListener('pointerup',e=>{if(drag&&drag.m<8)pick(HITS,ar,e);drag=null});
+$('#radar').addEventListener('click',e=>pick(RHITS,$('#radar'),e));
+function pick(H,c,e){const r=c.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;let b=null,bd=44;for(const h of H){const d=Math.hypot(h[0]-x,h[1]-y);if(d<bd){bd=d;b=h[2]}}if(b)openDetail(b)}
+
+/* ---------- boot ---------- */
+$('#fov').value=S.fov;$('#fov-v').textContent=S.fov+'°';
+renderFilters();updRange();renderSensors();tick();aimAtFirst();
+setInterval(tick,250);
+setInterval(()=>{if(S.view==='list'&&!pdown)renderList()},1500);
+requestAnimationFrame(frame);
+})();
+</script>
+</body></html>
