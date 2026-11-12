@@ -106,6 +106,9 @@ h2:first-child{margin-top:0}
 .badge span{font-size:11px;color:var(--mute)}
 .badge.on em{color:var(--amber)}
 .badge em{font:700 10px var(--f-data);font-style:normal;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.ph{display:block;width:100%;max-width:320px;border-radius:10px;margin:0 0 4px}
+.links{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.links a{color:var(--lock);font-weight:700;padding:8px 10px;border:1px solid var(--line);border-radius:10px;text-decoration:none}
 .empty{color:var(--mute);background:var(--panel);border:1px dashed var(--line);border-radius:12px;padding:14px}
 .tabs{display:grid;grid-template-columns:repeat(5,1fr);background:var(--panel);border-top:1px solid var(--line);padding-left:var(--gl);padding-right:var(--gr)}
 .tabs button{padding:9px 0 10px;display:flex;flex-direction:column;align-items:center;gap:3px;font:700 10px var(--f-data);letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
@@ -209,7 +212,7 @@ input[type=range]{width:100%;accent-color:var(--amber)}
     <input type="range" id="fov" min="40" max="80" value="60">
     <p class="note">If labels drift off the real aircraft as you pan, adjust this until they stay put.</p>
     <h2>Where data comes from</h2>
-    <p class="note">Aircraft: community ADS-B receiver networks. Satellites: orbital elements from CelesTrak. Sun and Moon: computed on your phone. Live mode sends your rounded position to the flight feed to ask what is nearby. Ships need an AIS data key and show only in the sample sky for now. Your logbook is saved in this browser only.</p>
+    <p class="note">Aircraft: community ADS-B receiver networks. Satellites: orbital elements from CelesTrak. Sun and Moon: computed on your phone. Live mode sends your rounded position to the flight feed to ask what is nearby. Ships need an AIS data key and show only in the sample sky for now. Owner, model and photo come from public aircraft registry records. Your logbook and sighting counts are saved in this browser only.</p>
   </div></div>
 
   <div id="toast" hidden role="status"></div>
@@ -333,7 +336,7 @@ function celestial(date,lat,lon){
 
 /* ---------- objects ---------- */
 function tierOf(o){if(o.kind==='plane'||o.kind==='heli')return Math.max((TYPES[o.type]||[])[8]||1,o.mil?3:0);if(o.kind==='sat')return /^(ISS|CSS)/.test(o.cs)?3:2;if(o.kind==='ship')return 2;return 1}
-const typeName=o=>(TYPES[o.type]||[])[0]||o.name||o.type||KIND[o.kind];
+const typeName=o=>(TYPES[o.type]||[])[0]||o.name||o.desc||o.type||KIND[o.kind];
 const keyOf=o=>o.kind+':'+(o.reg||o.cs||o.id);
 const logged=o=>LOG.some(x=>x.key===keyOf(o));
 function demoObjs(now){
@@ -357,11 +360,49 @@ function liveObjs(now){
   }
   return out;
 }
+/* ---------- this-airframe details ---------- */
+// used-market range in $M and the age (years) at which a type sits at the low end: rough figures, not appraisals
+const VAL={C150:[.04,.08,50],C152:[.05,.1,45],C172:[.1,.45,45],C182:[.13,.6,45],PA28:[.07,.4,45],SR20:[.15,.6,24],SR22:[.2,1.1,24],BE36:[.15,1,45],BE58:[.15,1.5,45],
+PC12:[1.8,6.5,30],C208:[.9,2.8,35],BE20:[.8,4.5,40],B350:[1.5,8.5,30],C56X:[2.5,13,25],C25B:[2.5,10,20],C680:[5,18,20],E55P:[5,11,14],CL30:[5,20,20],CL35:[10,27,10],GLF4:[2,12,35],GLF5:[9,28,28],GLF6:[28,62,13],
+B737:[5,25,25],B738:[8,35,26],B739:[10,35,18],B38M:[38,55,8],B39M:[40,57,8],A319:[4,20,25],A320:[5,30,30],A20N:[38,52,9],A321:[10,35,25],A21N:[45,62,8],E170:[4,12,20],E75L:[10,30,18],CRJ2:[.8,3,25],CRJ7:[3,10,22],CRJ9:[5,16,20],DH8D:[4,18,24],
+B752:[4,15,30],B763:[6,30,35],B744:[8,30,30],B748:[90,200,13],B772:[8,45,28],B77L:[30,150,18],B77W:[25,160,20],B788:[45,125,14],B789:[70,150,11],A332:[10,45,25],A333:[10,55,28],A359:[80,160,10],A388:[25,120,17],MD11:[5,15,32],
+R22:[.05,.35,40],R44:[.15,.55,30],R66:[.6,1.3,14],B06:[.3,1.2,50],B407:[1,3.5,28],EC35:[1.5,5,25],EC45:[2.5,8,20],A119:[1.2,4,25],A139:[4,13,20],AS50:[.8,3.5,40],S76:[1,10,40]};
+const MILV={F15:'Not sold on the civilian market. Roughly $30M for older models, about $90M for a new F-15EX.',C17:'Not sold on the civilian market. About $218M each when built.',H60:'Not sold on the civilian market. Roughly $20M new.'};
+const usd=n=>n>=1?'$'+(n>=10?Math.round(n):n.toFixed(1))+'M':'$'+Math.round(n*100)*10+'k';
+function valueOf(o){
+  if(MILV[o.type])return MILV[o.type];const v=VAL[o.type];if(!v)return'';
+  if(!o.year)return usd(v[0])+' to '+usd(v[1])+', depending on age';
+  const age=Math.max(0,new Date().getFullYear()-o.year),mid=v[0]+(v[1]-v[0])*Math.pow(Math.max(0,1-age/v[2]),1.5);
+  return'About '+usd(mid*.8)+' to '+usd(mid*1.2);
+}
+const REG={};let SEEN={},seenDirty=0,seenT=0;
+try{SEEN=JSON.parse(localStorage.getItem('overhead.seen')||'{}')||{}}catch(e){}
+function noteSeen(k,now){const e=SEEN[k];if(!e){SEEN[k]=[now,now,1];seenDirty=1}else if(now-e[1]>18e5){e[2]++;e[1]=now;seenDirty=1}else if(now-e[1]>12e4){e[1]=now;seenDirty=1}}
+function saveSeen(now){seenT=now;seenDirty=0;const ks=Object.keys(SEEN);if(ks.length>4000)ks.sort((a,b)=>SEEN[a][1]-SEEN[b][1]).slice(0,ks.length-3000).forEach(k=>delete SEEN[k]);try{localStorage.setItem('overhead.seen',JSON.stringify(SEEN))}catch(e){}}
+function airHtml(o){
+  const live=o.id[0]==='a',hex=live?o.id.slice(1):'',okHex=/^[0-9a-f]{6}$/.test(hex),db=REG[hex]||{},priv=(o.flags&12)>0,yr=o.year,age=yr?new Date().getFullYear()-yr:0;
+  const model=db.manufacturer?db.manufacturer+' '+(db.type||''):(o.desc||'');
+  const owner=priv?'Withheld. The owner has asked for limited tracking display.':(db.registered_owner||o.own||(live?'':o.op)||'');
+  const e=SEEN[hex],seen=!live?'Not counted in the sample sky':!e||e[2]<2?'First time this app has seen it near you':e[2]+' times since '+new Date(e[0]).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  const val=valueOf(o),r=(a,b)=>b?'<dt>'+a+'</dt><dd>'+esc(b)+'</dd>':'';
+  let h='<h2>This aircraft</h2>';
+  if(db.url_photo_thumbnail&&!priv)h+='<a href="'+esc(db.url_photo||db.url_photo_thumbnail)+'" target="_blank" rel="noopener"><img class="ph" src="'+esc(db.url_photo_thumbnail)+'" alt="Photo of '+esc(o.reg||o.cs)+'" loading="lazy"></a><p class="note" style="margin:0 0 10px">Photo: airport-data.com</p>';
+  h+='<dl class="spec">'+r('Tail number',o.reg)+r('ICAO hex',okHex?hex.toUpperCase():'')+r('Model',model)+r('Built',yr?yr+' ('+age+(age===1?' year':' years')+' old)':'')+r('Registered owner',owner)+r('Registered in',priv?'':db.registered_owner_country_name)+r('Flown by',o.op&&o.op!==owner&&live?o.op:'')+r('Seen near you',seen)+r('Rough value',val)+'</dl>';
+  if(val&&!MILV[o.type])h+='<p class="note">Value is a model estimate from type and age, not an appraisal. Condition, engine time and avionics can move it a lot.</p>';
+  if(live&&okHex&&!priv){const reg=o.reg||'';h+='<div class="links">'+(/^N[0-9]/.test(reg)?'<a href="https://registry.faa.gov/AircraftInquiry/Search/NNumberResult?nNumberTxt='+encodeURIComponent(reg)+'" target="_blank" rel="noopener">FAA record</a>':'')+'<a href="https://globe.adsbexchange.com/?icao='+hex+'" target="_blank" rel="noopener">Flight history</a>'+(reg?'<a href="https://www.flightaware.com/live/flight/'+encodeURIComponent(reg)+'" target="_blank" rel="noopener">FlightAware</a>':'')+'</div>'}
+  return h;
+}
+async function lookupAir(o){
+  const hex=o.id.slice(1);if(REG[hex]||(o.flags&12)||!/^[0-9a-f]{6}$/.test(hex))return;REG[hex]={};
+  try{const j=await(await fetch('https://api.adsbdb.com/v0/aircraft/'+hex)).json(),a=j&&j.response&&j.response.aircraft;
+    if(a&&a.registration){REG[hex]=a;if(S.detail===o.id){const el=$('#d-air'),cur=find(o.id);if(el&&cur)el.innerHTML=airHtml(cur)}}}catch(e){}
+}
 function tick(){
   const now=Date.now();let list=S.mode==='demo'?demoObjs(now):liveObjs(now);
   const c=celestial(now,S.obs.lat,S.obs.lon);
   list.push({id:'sun',kind:'sky',cs:'SUN',name:'The Sun',fix:c.sun},{id:'moon',kind:'sky',cs:'MOON',name:'The Moon',fix:c.moon});
   for(const o of list){geo(o);o.tier=tierOf(o)}
+  if(S.mode==='live'){for(const o of list)if(o.id[0]==='a'&&o.g<40234)noteSeen(o.id.slice(1),now);if(seenDirty&&now-seenT>20000)saveSeen(now)}
   S.all=list.filter(o=>!(o.kind==='sat'||o.kind==='sky')||o.el>0);
   S.objs=S.all.filter(o=>S.filters[o.kind]&&(S.showGnd||!o.gnd));
   if(S.lock&&!find(S.lock)){S.lock=null}
@@ -564,6 +605,7 @@ function openDetail(id){
   let h='<div class="sheet-h"><div><h1>'+esc(o.cs)+'</h1><p>'+esc(typeName(o))+(o.op?' · '+esc(o.op):'')+'</p></div><em class="pill t'+o.tier+'">'+TIER[o.tier]+'</em><button class="icon-btn" data-act="close" aria-label="Close">✕</button></div>';
   h+='<div id="d-route">'+routeHtml(o)+'</div><dl class="stats" id="d-live"></dl>';
   h+='<div class="row" style="margin:14px 0"><button class="btn" data-act="guide" data-id="'+esc(o.id)+'">Guide me to it</button><button class="btn go" data-act="log" data-id="'+esc(o.id)+'"'+(done?' disabled':'')+'>'+(done?'In your logbook':'Log it  +'+PTS[o.tier])+'</button></div>';
+  if(air)h+='<div id="d-air">'+airHtml(o)+'</div>';
   if(T){h+='<h2>About the '+esc(T[0])+'</h2><dl class="spec"><dt>Role</dt><dd>'+T[2]+'</dd><dt>Built by</dt><dd>'+T[1]+'</dd><dt>Power</dt><dd>'+T[3]+'</dd><dt>Carries</dt><dd>'+T[4]+'</dd>'+(T[5]?'<dt>Range</dt><dd>'+num(T[5]*1.1508)+' mi</dd>':'')+'<dt>Flying since</dt><dd>'+T[7]+'</dd><dt>'+(T[10]==='heli'?'Rotor':'Wingspan')+'</dt><dd>'+T[6]+' ft</dd></dl>'
     +'<div class="span-bar"><span class="lbl">Size next to an A380 (261.6 ft)</span><div class="bar"><i style="width:'+Math.round(T[6]/261.6*100)+'%"></i></div></div><p class="fact">'+T[9]+'</p><p class="note">Typical figures. Variants and airline layouts differ.</p>'}
   else if(o.kind==='sat'){h+='<h2>About this satellite</h2><p class="fact">'+(SATFACT[o.cs.split(' ')[0]]||'Satellites show up best in the hour or two after sunset or before sunrise, when the sky is dark but they still catch sunlight.')+'</p>'}
@@ -573,6 +615,7 @@ function openDetail(id){
   if(S.mode==='demo')h+='<p class="note">Sample data. Go live to see real traffic.</p>';
   $('#detail-p').innerHTML=h;$('#detail').hidden=false;updDetailLive();
   if(S.mode==='live'&&air&&o.cs&&!S.routes[o.cs])lookupRoute(o);
+  if(S.mode==='live'&&air)lookupAir(o);
 }
 function routeHtml(o){
   const r=S.routes[o.cs]||(o.from?{from:o.from,to:o.to}:null);if(!r||!r.from)return'';
@@ -627,7 +670,7 @@ function goDemo(){S.mode='demo';S.obs={lat:45.52,lon:-122.68,alt:15};S.sens=fals
   for(const k in S.st)S.st[k]='off';clearTimeout(pollT);if(MAP)MAP.setView([S.obs.lat,S.obs.lon]);renderSensors();tick();aimAtFirst()}
 const opOf=cs=>AIRLINE[(cs||'').slice(0,3)]||'';
 function readsb(j){if(!j.ac&&!j.aircraft)throw 0;return(j.ac||j.aircraft).filter(a=>a.lat!=null&&a.lon!=null).map(a=>{const cs=(a.flight||a.r||a.hex||'').trim(),t=a.t||'';
-  return{id:'a'+a.hex,gnd:a.alt_baro==='ground',kind:(a.category==='A7'||HELI.has(t))?'heli':'plane',cs:cs.toUpperCase(),reg:a.r||'',type:t,op:a.ownOp||opOf(cs),mil:(a.dbFlags&1)?1:0,
+  return{id:'a'+a.hex,gnd:a.alt_baro==='ground',kind:(a.category==='A7'||HELI.has(t))?'heli':'plane',cs:cs.toUpperCase(),reg:a.r||'',type:t,op:opOf(cs)||((a.dbFlags&12)?'':a.ownOp)||'',own:(a.dbFlags&12)?'':a.ownOp||'',desc:a.desc||'',year:+a.year||0,flags:a.dbFlags||0,mil:(a.dbFlags&1)?1:0,
     lat0:a.lat,lon0:a.lon,alt0:(a.alt_baro==='ground'?0:(a.alt_baro??a.alt_geom??0))*0.3048,gs:a.gs||0,trk:a.track??a.true_heading??0,vr:a.baro_rate??a.geom_rate??0,sq:a.squawk||''}})}
 function osky(j){if(!('states' in j))throw 0;return(j.states||[]).filter(s=>s[5]!=null&&s[6]!=null).map(s=>{const cs=(s[1]||s[0]||'').trim();
   return{id:'a'+s[0],gnd:!!s[8],kind:s[17]===8?'heli':'plane',cs:cs.toUpperCase(),reg:'',type:'',op:opOf(cs),lat0:s[6],lon0:s[5],alt0:s[8]?0:(s[7]??s[13]??0),gs:(s[9]||0)*1.944,trk:s[10]||0,vr:(s[11]||0)*196.85,sq:s[14]||''}})}
