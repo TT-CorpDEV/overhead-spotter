@@ -1,0 +1,22 @@
+[build]
+  publish = "public"
+  command = "echo static site"
+
+[functions]
+  directory = "netlify/functions"
+
+# Same-site relays so the app can read the public flight feeds from a phone browser
+[[redirects]]
+  from = "/feed/fi/*"
+  to = "https://opendata.adsb.fi/api/v2/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/feed/lol/*"
+  to = "https://api.adsb.lol/v2/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/feed/live/*"
+  to = "https://api.airplanes.live/v2/:splat"
+  status = 200
