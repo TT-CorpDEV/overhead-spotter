@@ -30,12 +30,12 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .chip i{width:8px;height:8px;border-radius:50%;background:var(--amber)}
 .chip.live i{background:var(--k-heli)}
 .icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);display:grid;place-items:center}
-.stage{flex:1;min-height:0;position:relative}
+.stage{flex:1;min-height:0;position:relative;overflow:hidden}
 .view{position:absolute;inset:0}
 .view.scroll{overflow-y:auto;padding-block:14px;padding-left:var(--gl);padding-right:var(--gr)}
 #cam,#ar,#radar{position:absolute;inset:0;width:100%;height:100%}
 #cam{object-fit:cover;background:#000}
-#ar{touch-action:none}
+#ar,#radar{touch-action:none}
 .hint{position:absolute;left:var(--gl);top:56px;font:400 11px var(--f-data);color:var(--mute);background:rgba(10,15,42,.6);padding:4px 8px;border-radius:6px;pointer-events:none}
 #rare{position:absolute;right:var(--gr);top:56px;max-width:62%;text-align:left;font-size:12px;padding:6px 10px;border-radius:10px;background:rgba(17,24,58,.9);border:1px solid var(--t4);color:var(--ink)}
 #rare b{color:var(--t4);font:700 10px var(--f-data);letter-spacing:.1em;text-transform:uppercase;display:block}
@@ -142,7 +142,7 @@ input[type=range]{width:100%;accent-color:var(--amber)}
       <canvas id="radar" aria-label="Radar of nearby traffic"></canvas>
       <div class="radar-ctl">
         <div class="seg" id="range" role="group" aria-label="Range in miles">
-          <button data-range="10">10</button><button data-range="25">25</button><button data-range="50">50</button><button data-range="100">100 mi</button>
+          <button data-range="5">5</button><button data-range="10">10</button><button data-range="25">25</button><button data-range="50">50</button><button data-range="100">100 mi</button>
         </div>
         <div class="seg" role="group" aria-label="Radar orientation">
           <button data-act="north" id="north-btn" aria-pressed="false">North up</button>
@@ -363,7 +363,7 @@ function proj(d,B,W,H,f){const z=dot(d,B.c);if(z<=0.05)return null;return[W/2+do
 
 function drawAR(now){
   const [x,W,H]=fit($('#ar'));if(!W)return;
-  const B=basis(),f=(H/2)/Math.tan(S.fov*D/2),az=camAz(B),el=camEl(B);
+  const B=basis(),f=(H/2)/Math.tan(S.fov*D/2)*(S.zoom||1),az=camAz(B),el=camEl(B);
   x.clearRect(0,0,W,H);
   if(!S.cam){
     const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,COL.hi);g.addColorStop(1,COL.lo);x.fillStyle=g;x.fillRect(0,0,W,H);
@@ -377,7 +377,7 @@ function drawAR(now){
   HITS=[];let best=null,bestA=99;const vis=[];
   for(const o of S.objs){
     if(o.el<-4)continue;
-    if(isFinite(o.g)&&o.kind!=='sat'&&o.g>S.range*1609.34*1.6&&o.id!==S.sel)continue;
+    if(isFinite(o.g)&&o.kind!=='sat'&&o.g>Math.max(S.range,25)*1609.34*1.6&&o.id!==S.sel)continue;
     const ang=Math.acos(Math.max(-1,Math.min(1,dot(o.d,B.c))))/D;
     if(ang<bestA){bestA=ang;best=o}
     const p=proj(o.d,B,W,H,f);if(!p||p[0]<-30||p[0]>W+30||p[1]<-30||p[1]>H+30)continue;
@@ -393,7 +393,7 @@ function drawAR(now){
     HITS.push([p[0],p[1],o.id]);
   });
   // lock logic
-  if(best&&bestA<7){
+  if(best&&bestA<7/(S.zoom||1)){
     if(!S.cand||S.cand.id!==best.id)S.cand={id:best.id,t:now};
     else if(S.lock!==best.id&&now-S.cand.t>650){S.lock=best.id;try{navigator.vibrate&&navigator.vibrate(25)}catch(e){}updCard()}
   }else{S.cand=null;if(S.lock){S.lock=null;updCard()}}
@@ -411,7 +411,7 @@ function drawAR(now){
     if(big){const card=m%45===0;x.fillStyle=card?COL.amber:COL.mute;x.font=(card?'700 12px':'400 10px')+' "B612 Mono",monospace';x.fillText(card?compass(m):String(m).padStart(3,'0'),px,22)}}
   x.fillStyle=COL.lock;x.beginPath();x.moveTo(cx,46);x.lineTo(cx-6,54);x.lineTo(cx+6,54);x.closePath();x.fill();
   x.font='700 12px "B612 Mono",monospace';x.fillStyle=COL.ink;x.textAlign='left';x.fillText('HDG '+String(Math.round(az)%360).padStart(3,'0')+'°',12,84);
-  x.textAlign='right';x.fillText('EL '+(el>=0?'+':'')+Math.round(el)+'°',W-12,84);x.textAlign='left';
+  x.textAlign='right';x.fillText('EL '+(el>=0?'+':'')+Math.round(el)+'°',W-12,84);if((S.zoom||1)>1.05)x.fillText(S.zoom.toFixed(1)+'×',W-12,102);x.textAlign='left';
   // guide to selected target
   const t=S.sel&&find(S.sel);
   if(t){const p=proj(t.d,B,W,H,f);if(!p||p[0]<20||p[0]>W-20||p[1]<60||p[1]>H-20){
@@ -427,7 +427,7 @@ function drawRadar(){
   const B=basis(),hd=heading(B),rot=S.northUp?0:hd,cx=W/2,cy=(H-60)/2+4,R=Math.max(40,Math.min(W/2-26,(H-60)/2-26)),rm=S.range*1609.34;
   x.clearRect(0,0,W,H);x.fillStyle=COL.hi;x.fillRect(0,0,W,H);
   x.strokeStyle=COL.line;x.lineWidth=1;x.font='400 10px "B612 Mono",monospace';x.textBaseline='middle';x.textAlign='center';
-  for(let i=1;i<=3;i++){x.beginPath();x.arc(cx,cy,R*i/3,0,7);x.stroke();x.fillStyle=COL.mute;x.fillText(Math.round(S.range*i/3)+' mi',cx,cy-R*i/3+9)}
+  for(let i=1;i<=3;i++){x.beginPath();x.arc(cx,cy,R*i/3,0,7);x.stroke();x.fillStyle=COL.mute;x.fillText((S.range<9?(S.range*i/3).toFixed(1):Math.round(S.range*i/3))+' mi',cx,cy-R*i/3+9)}
   for(let a=0;a<360;a+=30){const r=(a-rot)*D;x.beginPath();x.moveTo(cx+Math.sin(r)*R,cy-Math.cos(r)*R);x.lineTo(cx+Math.sin(r)*(R+(a%90?4:8)),cy-Math.cos(r)*(R+(a%90?4:8)));x.stroke()}
   x.font='700 12px "B612 Mono",monospace';
   for(const [a,n] of[[0,'N'],[90,'E'],[180,'S'],[270,'W']]){const r=(a-rot)*D;x.fillStyle=a?COL.mute:COL.amber;x.fillText(n,cx+Math.sin(r)*(R+17),cy-Math.cos(r)*(R+17))}
@@ -528,7 +528,7 @@ function renderSensors(){
   $('#sensor-rows').innerHTML=Object.keys(lab).map(k=>'<div class="stat-row"><span>'+lab[k]+'</span><span class="'+cls[S.st[k]]+'">'+txt[S.st[k]]+'</span></div>').join('');
   const live=S.mode==='live';$('#mode').className='chip'+(live?' live':'');$('#mode span').textContent=live?'Live':'Sample';
   $('#where').textContent=live?'Live · '+S.obs.lat.toFixed(2)+', '+S.obs.lon.toFixed(2):'Sample sky · Portland, OR';
-  $('#hint').textContent=S.sens?'Aim at the sky':'Drag to look around';$('#live-btn').textContent=live?'Restart sensors':'Go live';
+  $('#hint').textContent=S.sens?'Aim at the sky · pinch to zoom':'Drag to look · pinch to zoom';$('#live-btn').textContent=live?'Restart sensors':'Go live';
 }
 
 /* ---------- live mode ---------- */
@@ -567,7 +567,7 @@ function osky(j){if(!('states' in j))throw 0;return(j.states||[]).filter(s=>s[5]
 let pollT;
 async function poll(){
   clearTimeout(pollT);if(S.mode!=='live')return;
-  const la=S.obs.lat.toFixed(2),lo=S.obs.lon.toFixed(2),nm=Math.min(250,Math.round(S.range*1.6*0.869)),dg=S.range*1.6/69,dl=dg/Math.cos(S.obs.lat*D);
+  const la=S.obs.lat.toFixed(2),lo=S.obs.lon.toFixed(2),nm=Math.min(250,Math.round(Math.max(S.range,25)*1.6*0.869)),dg=Math.max(S.range,25)*1.6/69,dl=dg/Math.cos(S.obs.lat*D);
   const fi='https://opendata.adsb.fi/api/v2/lat/'+la+'/lon/'+lo+'/dist/'+nm;
   const SRC=[['feed/fi/lat/'+la+'/lon/'+lo+'/dist/'+nm,readsb],['feed/lol/point/'+la+'/'+lo+'/'+nm,readsb],['feed/live/point/'+la+'/'+lo+'/'+nm,readsb],
     ['https://api.cors.lol/?url='+encodeURIComponent(fi),readsb],['https://api.adsb.lol/v2/point/'+la+'/'+lo+'/'+nm,readsb],['https://api.airplanes.live/v2/point/'+la+'/'+lo+'/'+nm,readsb],
@@ -621,7 +621,20 @@ ar.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,m:0};try{ar.
 ar.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.m+=Math.abs(dx)+Math.abs(dy);drag.x=e.clientX;drag.y=e.clientY;
   if(!S.sens){const k=1/((ar.clientHeight/2)/Math.tan(S.fov*D/2)*D);S.look.az=(S.look.az-dx*k+360)%360;S.look.el=Math.max(-30,Math.min(88,S.look.el+dy*k))}});
 ar.addEventListener('pointerup',e=>{if(drag&&drag.m<8)pick(HITS,ar,e);drag=null});
-$('#radar').addEventListener('click',e=>pick(RHITS,$('#radar'),e));
+const rc=$('#radar'),gap=m=>{const p=[...m.values()];return Math.hypot(p[0][0]-p[1][0],p[0][1]-p[1][1])||1},clampR=r=>Math.max(2,Math.min(150,Math.round(r*10)/10));
+rc.addEventListener('click',e=>{if(Date.now()-(S.zt||0)>400)pick(RHITS,rc,e)});
+const rp=new Map();let pz=null;
+rc.addEventListener('pointerdown',e=>{rp.set(e.pointerId,[e.clientX,e.clientY]);if(rp.size===2)pz={d:gap(rp),r:S.range}});
+rc.addEventListener('pointermove',e=>{if(!rp.has(e.pointerId))return;rp.set(e.pointerId,[e.clientX,e.clientY]);if(pz&&rp.size===2){S.range=clampR(pz.r*pz.d/gap(rp));updRange()}});
+const rend=e=>{rp.delete(e.pointerId);if(pz&&rp.size<2){pz=null;S.zt=Date.now();save();if(S.mode==='live')poll()}};
+rc.addEventListener('pointerup',rend);rc.addEventListener('pointercancel',rend);
+rc.addEventListener('wheel',e=>{e.preventDefault();S.range=clampR(S.range*(e.deltaY>0?1.15:0.87));updRange();save()},{passive:false});
+const ap=new Map();let az0=null;const setZoom=z=>{S.zoom=Math.max(1,Math.min(5,z));$('#cam').style.transform='scale('+S.zoom+')'};
+ar.addEventListener('pointerdown',e=>{ap.set(e.pointerId,[e.clientX,e.clientY]);if(ap.size===2){drag=null;az0={d:gap(ap),z:S.zoom||1}}});
+ar.addEventListener('pointermove',e=>{if(!ap.has(e.pointerId))return;ap.set(e.pointerId,[e.clientX,e.clientY]);if(az0&&ap.size===2)setZoom(az0.z*gap(ap)/az0.d)});
+const aend=e=>{ap.delete(e.pointerId);if(ap.size<2)az0=null};
+ar.addEventListener('pointerup',aend);ar.addEventListener('pointercancel',aend);
+ar.addEventListener('wheel',e=>{e.preventDefault();setZoom((S.zoom||1)*(e.deltaY>0?0.87:1.15))},{passive:false});
 function pick(H,c,e){const r=c.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;let b=null,bd=44;for(const h of H){const d=Math.hypot(h[0]-x,h[1]-y);if(d<bd){bd=d;b=h[2]}}if(b)openDetail(b)}
 
 /* ---------- boot ---------- */
