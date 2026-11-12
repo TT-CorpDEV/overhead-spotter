@@ -30,7 +30,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .chip i{width:8px;height:8px;border-radius:50%;background:var(--amber)}
 .chip.live i{background:var(--k-heli)}
 .icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);display:grid;place-items:center}
-.stage{flex:1;min-height:0;position:relative;overflow:hidden}
+.stage{flex:1;min-height:0;position:relative;overflow:hidden;z-index:0}
 .view{position:absolute;inset:0}
 .view.scroll{overflow-y:auto;padding-block:14px;padding-left:var(--gl);padding-right:var(--gr)}
 #cam,#ar,#radar{position:absolute;inset:0;width:100%;height:100%}
@@ -61,6 +61,28 @@ dl{margin:0}
 .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
 .filters button{padding:7px 10px;border-radius:999px;border:1px solid var(--line);font-size:12px;color:var(--mute);display:flex;gap:6px;align-items:center}
 .filters button[aria-pressed="true"]{color:var(--ink);background:var(--panel-2)}
+#map{position:absolute;inset:0;background:var(--sky-hi);touch-action:none}
+#mapc{position:absolute;inset:0;width:100%;height:100%;z-index:500;pointer-events:none}
+.map-top{position:absolute;z-index:600;top:10px;left:var(--gl);right:var(--gr);margin:0}
+.map-top button{background:rgba(17,24,58,.92)}
+.map-btn{position:absolute;z-index:600;right:var(--gr);bottom:30px;background:rgba(17,24,58,.94)}
+#mcount{position:absolute;z-index:600;left:var(--gl);bottom:30px;font:700 11px var(--f-data);background:rgba(17,24,58,.92);border:1px solid var(--line);border-radius:999px;padding:6px 10px}
+.leaflet-container{overflow:hidden;font:inherit}
+.leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-layer{position:absolute;left:0;top:0}
+.leaflet-tile{user-select:none;-webkit-user-drag:none;visibility:hidden;max-width:none!important;max-height:none!important;width:256px;height:256px}
+.leaflet-tile-loaded{visibility:inherit}
+.leaflet-pane{z-index:400}.leaflet-tile-pane{z-index:200}.leaflet-overlay-pane{z-index:400}.leaflet-marker-pane{z-index:600}
+.leaflet-zoom-animated{transform-origin:0 0}
+.leaflet-zoom-anim .leaflet-zoom-animated{transition:transform .25s cubic-bezier(0,0,.25,1)}
+.leaflet-zoom-anim .leaflet-tile,.leaflet-pan-anim .leaflet-tile{transition:none}
+.leaflet-zoom-anim .leaflet-zoom-hide{visibility:hidden}
+.leaflet-top,.leaflet-bottom{position:absolute;z-index:550;pointer-events:none}
+.leaflet-top{top:0}.leaflet-bottom{bottom:0}.leaflet-left{left:0}.leaflet-right{right:0}
+.leaflet-control{position:relative;pointer-events:auto;float:left;clear:both}
+.leaflet-right .leaflet-control{float:right}
+.leaflet-control-attribution{font-size:10px;background:rgba(10,15,42,.75);color:var(--mute);padding:2px 6px}
+.leaflet-control-attribution a{color:var(--mute)}
+.leaflet-grab{cursor:grab}
 .dot{width:9px;height:9px;border-radius:50%;flex:none}
 .list{display:flex;flex-direction:column;gap:8px}
 .item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;text-align:left;padding:10px 12px;border-radius:12px;background:var(--panel);border:1px solid var(--line);width:100%}
@@ -84,7 +106,7 @@ h2:first-child{margin-top:0}
 .badge.on em{color:var(--amber)}
 .badge em{font:700 10px var(--f-data);font-style:normal;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
 .empty{color:var(--mute);background:var(--panel);border:1px dashed var(--line);border-radius:12px;padding:14px}
-.tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--panel);border-top:1px solid var(--line);padding-left:var(--gl);padding-right:var(--gr)}
+.tabs{display:grid;grid-template-columns:repeat(5,1fr);background:var(--panel);border-top:1px solid var(--line);padding-left:var(--gl);padding-right:var(--gr)}
 .tabs button{padding:9px 0 10px;display:flex;flex-direction:column;align-items:center;gap:3px;font:700 10px var(--f-data);letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
 .tabs button[aria-selected="true"]{color:var(--amber)}
 .sheet{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(5,8,22,.6)}
@@ -150,6 +172,14 @@ input[type=range]{width:100%;accent-color:var(--amber)}
       </div>
     </section>
 
+    <section class="view" id="v-map" hidden>
+      <div id="map"></div>
+      <canvas id="mapc"></canvas>
+      <div class="filters map-top" id="mfilters"></div>
+      <div id="mcount"></div>
+      <button class="icon-btn map-btn" data-act="locate" aria-label="Center on my location"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg></button>
+    </section>
+
     <section class="view scroll" id="v-list" hidden>
       <div class="filters" id="filters"></div>
       <div class="list" id="list"></div>
@@ -161,6 +191,7 @@ input[type=range]{width:100%;accent-color:var(--amber)}
   <nav class="tabs" role="tablist">
     <button role="tab" data-view="point" aria-selected="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg>Point</button>
     <button role="tab" data-view="radar" aria-selected="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 12l6-6"/></svg>Radar</button>
+    <button role="tab" data-view="map" aria-selected="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg>Map</button>
     <button role="tab" data-view="list" aria-selected="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Nearby</button>
     <button role="tab" data-view="hangar" aria-selected="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V10l9-6 9 6v10M7 20v-7h10v7"/></svg>Hangar</button>
   </nav>
@@ -183,6 +214,7 @@ input[type=range]{width:100%;accent-color:var(--amber)}
   <div id="toast" hidden role="status"></div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.0.0/satellite.min.js"></script>
 <script>
 (()=>{
@@ -444,9 +476,43 @@ function drawRadar(){
     x.globalAlpha=1;RHITS.push([px,py,o.id]);
   }
 }
+let MAP=null,MHITS=[],mapT;
+function openMap(){
+  if(!window.L){$('#mcount').textContent='Map could not load. Check your connection and reopen the app.';return}
+  if(!MAP){
+    MAP=L.map('map',{zoomControl:false,center:[S.obs.lat,S.obs.lon],zoom:10,minZoom:3,maxZoom:16,worldCopyJump:true});
+    MAP.attributionControl.setPrefix(false);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:20,attribution:'© OpenStreetMap contributors © CARTO'}).addTo(MAP);
+    MAP.on('click',e=>{const p=e.containerPoint;let b=null,bd=34;for(const h of MHITS){const d=Math.hypot(h[0]-p.x,h[1]-p.y);if(d<bd){bd=d;b=h[2]}}if(b)openDetail(b)});
+    MAP.on('moveend',()=>{clearTimeout(mapT);mapT=setTimeout(()=>{if(S.mode==='live'&&S.view==='map')poll()},1200)});
+  }
+  setTimeout(()=>{MAP.invalidateSize();if(S.mode==='live')poll()},60);
+}
+function drawMap(){
+  const [x,W,H]=fit($('#mapc'));if(!W)return;x.clearRect(0,0,W,H);if(!MAP)return;
+  const z=MAP.getZoom(),pt=(la,lo)=>{const p=MAP.latLngToContainerPoint([la,lo]);return[p.x,p.y]};
+  const me=pt(S.obs.lat,S.obs.lon),hd=heading(basis())*D-Math.PI/2;
+  x.beginPath();x.moveTo(me[0],me[1]);x.arc(me[0],me[1],64,hd-.5,hd+.5);x.closePath();x.fillStyle=COL.lock;x.globalAlpha=.2;x.fill();x.globalAlpha=1;
+  x.beginPath();x.arc(me[0],me[1],6,0,7);x.fillStyle=COL.lock;x.fill();x.strokeStyle=COL.ink;x.lineWidth=2;x.stroke();
+  MHITS=[];const LB=[];x.textBaseline='middle';x.textAlign='left';x.lineJoin='round';
+  const list=S.objs.filter(o=>o.lat!=null).map(o=>[o,pt(o.lat,o.lon)]).filter(e=>e[1][0]>-30&&e[1][0]<W+30&&e[1][1]>-30&&e[1][1]<H+30).sort((a,b)=>a[0].g-b[0].g);
+  let n=0;
+  for(const [o,p] of list){
+    const air=o.kind==='plane'||o.kind==='heli',on=o.id===S.sel||o.id===S.detail,col=on?COL.lock:COL[o.kind];if(air)n++;
+    if(air&&o.gs>40){const a=adv(o.lat,o.lon,0,o.gs,o.trk||0,0,60),q=pt(a[0],a[1]);x.strokeStyle=col;x.globalAlpha=.5;x.lineWidth=1;x.beginPath();x.moveTo(p[0],p[1]);x.lineTo(q[0],q[1]);x.stroke();x.globalAlpha=1}
+    glyph(x,o.kind,p[0],p[1],on?11:9,(o.trk||0)*D,col,true);
+    if(o.tier>=3&&!on){x.strokeStyle=COL.t4;x.lineWidth=1;x.beginPath();x.arc(p[0],p[1],16,0,7);x.stroke()}
+    const two=z>=9&&air,w=Math.max(o.cs.length,two?9:0)*6.2+4,bx=p[0]+13;
+    if(on||!LB.some(b=>bx<b[0]+b[2]&&bx+w>b[0]&&Math.abs(p[1]-b[1])<(two?22:12))){LB.push([bx,p[1],w]);
+      x.font='700 10px "B612 Mono",monospace';x.strokeStyle=COL.hi;x.lineWidth=3;x.strokeText(o.cs,bx,p[1]-(two?5:0));x.fillStyle=col;x.fillText(o.cs,bx,p[1]-(two?5:0));
+      if(two){x.font='400 9px "B612 Mono",monospace';x.strokeText(fAlt(o),bx,p[1]+6);x.fillStyle=COL.ink;x.fillText(fAlt(o),bx,p[1]+6)}}
+    MHITS.push([p[0],p[1],o.id]);
+  }
+  const t=n+' aircraft in view',mc=$('#mcount');if(mc.textContent!==t)mc.textContent=t;
+}
 function frame(now){
   const t=Date.now();
-  if(S.view==='point')drawAR(t);else if(S.view==='radar')drawRadar();
+  if(S.view==='point')drawAR(t);else if(S.view==='radar')drawRadar();else if(S.view==='map')drawMap();
   requestAnimationFrame(frame);
 }
 
@@ -466,8 +532,8 @@ function updRare(){
   if(el.dataset.id!==r.id||el.hidden){el.dataset.id=r.id;el.innerHTML='<b>'+TIER[r.tier]+' overhead</b>'+esc(typeName(r))+' · Find it';el.hidden=false}
 }
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3800)}
-function setView(v){S.view=v;for(const n of['point','radar','list','hangar'])$('#v-'+n).hidden=n!==v;$$('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.view===v));if(v==='list')renderList();if(v==='hangar')renderHangar()}
-function renderFilters(){$('#filters').innerHTML=Object.keys(KIND).map(k=>'<button data-filter="'+k+'" aria-pressed="'+!!S.filters[k]+'"><i class="dot" style="background:var(--k-'+k+')"></i>'+KIND[k]+(k==='sky'?'':'s')+'</button>').join('')+'<button data-act="gnd" aria-pressed="'+!!S.showGnd+'">Parked aircraft</button>'}
+function setView(v){S.view=v;for(const n of['point','radar','map','list','hangar'])$('#v-'+n).hidden=n!==v;$$('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.view===v));if(v==='map')openMap();if(v==='list')renderList();if(v==='hangar')renderHangar()}
+function renderFilters(){$('#mfilters').innerHTML=$('#filters').innerHTML=Object.keys(KIND).map(k=>'<button data-filter="'+k+'" aria-pressed="'+!!S.filters[k]+'"><i class="dot" style="background:var(--k-'+k+')"></i>'+KIND[k]+(k==='sky'?'':'s')+'</button>').join('')+'<button data-act="gnd" aria-pressed="'+!!S.showGnd+'">Parked aircraft</button>'}
 function renderList(){
   const l=[...S.objs].sort((a,b)=>(isFinite(a.dist)?a.dist:9e12)-(isFinite(b.dist)?b.dist:9e12));
   $('#list').innerHTML=l.length?l.map(o=>'<button class="item" data-act="detail" data-id="'+esc(o.id)+'"><i class="dot" style="background:var(--k-'+o.kind+')"></i><span class="mid"><b>'+esc(o.cs)+(logged(o)?' ✓':'')+'</b><span>'+esc(typeName(o))+(o.op?' · '+esc(o.op):'')+'</span></span><span class="end"><b>'+(isFinite(o.dist)?fDst(o):'—')+'</b>'+compass(o.az)+' · '+(o.kind==='plane'||o.kind==='heli'?fAlt(o):'<span class="t'+o.tier+'">'+TIER[o.tier]+'</span>')+'</span></button>').join('')
@@ -547,7 +613,7 @@ async function goLive(){
   try{pos=await new Promise((res,rej)=>navigator.geolocation?navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:12000}):rej(new Error('no gps')))}
   catch(e){S.st.gps='bad';renderSensors();toast('Location is blocked in this preview. Open the hosted copy on your phone to go live.');return}
   const setPos=p=>{S.obs={lat:p.coords.latitude,lon:p.coords.longitude,alt:p.coords.altitude||30}};
-  setPos(pos);S.mode='live';S.st.gps='on';S.lock=S.sel=null;S.live={};
+  setPos(pos);if(MAP)MAP.setView([S.obs.lat,S.obs.lon]);S.mode='live';S.st.gps='on';S.lock=S.sel=null;S.live={};
   try{navigator.geolocation.watchPosition(setPos,()=>{},{enableHighAccuracy:true})}catch(e){}
   window.addEventListener('deviceorientationabsolute',onOri);window.addEventListener('deviceorientation',onOri);
   setTimeout(()=>{if(!S.sens){S.st.compass='bad';renderSensors()}},3000);
@@ -557,7 +623,7 @@ async function goLive(){
 }
 function goDemo(){S.mode='demo';S.obs={lat:45.52,lon:-122.68,alt:15};S.sens=false;S.cam=false;$('#cam').hidden=true;window.removeEventListener('deviceorientationabsolute',onOri);window.removeEventListener('deviceorientation',onOri);
   try{const v=$('#cam');v.srcObject&&v.srcObject.getTracks().forEach(t=>t.stop());v.srcObject=null}catch(e){}
-  for(const k in S.st)S.st[k]='off';clearTimeout(pollT);renderSensors();tick();aimAtFirst()}
+  for(const k in S.st)S.st[k]='off';clearTimeout(pollT);if(MAP)MAP.setView([S.obs.lat,S.obs.lon]);renderSensors();tick();aimAtFirst()}
 const opOf=cs=>AIRLINE[(cs||'').slice(0,3)]||'';
 function readsb(j){if(!j.ac&&!j.aircraft)throw 0;return(j.ac||j.aircraft).filter(a=>a.lat!=null&&a.lon!=null).map(a=>{const cs=(a.flight||a.r||a.hex||'').trim(),t=a.t||'';
   return{id:'a'+a.hex,gnd:a.alt_baro==='ground',kind:(a.category==='A7'||HELI.has(t))?'heli':'plane',cs:cs.toUpperCase(),reg:a.r||'',type:t,op:a.ownOp||opOf(cs),mil:(a.dbFlags&1)?1:0,
@@ -567,11 +633,13 @@ function osky(j){if(!('states' in j))throw 0;return(j.states||[]).filter(s=>s[5]
 let pollT;
 async function poll(){
   clearTimeout(pollT);if(S.mode!=='live')return;
-  const la=S.obs.lat.toFixed(2),lo=S.obs.lon.toFixed(2),nm=Math.min(250,Math.round(Math.max(S.range,25)*1.6*0.869)),dg=Math.max(S.range,25)*1.6/69,dl=dg/Math.cos(S.obs.lat*D);
+  let qa=S.obs.lat,qo=S.obs.lon,qn=Math.max(S.range,25)*1.6*0.869;
+  if(S.view==='map'&&MAP){const c=MAP.getCenter().wrap();qa=c.lat;qo=c.lng;qn=Math.max(25,c.distanceTo(MAP.getBounds().getNorthEast())/1852)}
+  const la=qa.toFixed(2),lo=qo.toFixed(2),nm=Math.min(250,Math.round(qn)),dg=nm*1.1508/69,dl=dg/Math.cos(qa*D);
   const fi='https://opendata.adsb.fi/api/v2/lat/'+la+'/lon/'+lo+'/dist/'+nm;
   const SRC=[['feed/fi/lat/'+la+'/lon/'+lo+'/dist/'+nm,readsb],['feed/lol/point/'+la+'/'+lo+'/'+nm,readsb],['feed/live/point/'+la+'/'+lo+'/'+nm,readsb],
     ['https://api.cors.lol/?url='+encodeURIComponent(fi),readsb],['https://api.adsb.lol/v2/point/'+la+'/'+lo+'/'+nm,readsb],['https://api.airplanes.live/v2/point/'+la+'/'+lo+'/'+nm,readsb],
-    ['https://opensky-network.org/api/states/all?lamin='+(S.obs.lat-dg).toFixed(2)+'&lomin='+(S.obs.lon-dl).toFixed(2)+'&lamax='+(S.obs.lat+dg).toFixed(2)+'&lomax='+(S.obs.lon+dl).toFixed(2),osky]];
+    ['https://opensky-network.org/api/states/all?lamin='+(qa-dg).toFixed(2)+'&lomin='+(qo-dl).toFixed(2)+'&lamax='+(qa+dg).toFixed(2)+'&lomax='+(qo+dl).toFixed(2),osky]];
   let ok=false;
   for(let i=0;i<SRC.length&&!ok;i++){const k=(S.src+i)%SRC.length;
     try{const r=await fetch(SRC[k][0]);if(!r.ok)throw 0;const list=SRC[k][1](await r.json()),t=Date.now();for(const o of list){o.t=t;S.live[o.id]=o}S.src=k;ok=true}catch(e){}}
@@ -600,6 +668,7 @@ document.addEventListener('click',e=>{
   if(b.dataset.view)return setView(b.dataset.view);
   if(b.dataset.range){S.range=+b.dataset.range;save();updRange();if(S.mode==='live')poll();return}
   if(b.dataset.filter){S.filters[b.dataset.filter]^=1;renderFilters();tick();renderList();return}
+  if(a==='locate'){if(MAP)MAP.setView([S.obs.lat,S.obs.lon],Math.max(MAP.getZoom(),10));return}
   if(a==='gnd'){S.showGnd=!S.showGnd;renderFilters();tick();renderList();return}
   if(a==='detail')openDetail(id);
   else if(a==='log')logCatch(id);
