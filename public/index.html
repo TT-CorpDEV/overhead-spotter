@@ -52,6 +52,8 @@ dl{margin:0}
 .btn{flex:1;min-width:120px;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);font-weight:700;text-align:center}
 .btn.go{background:var(--amber);border-color:var(--amber);color:#1a1200}
 .btn[disabled]{opacity:.6;cursor:default}
+.btn.sm{flex:0 0 auto;min-width:0}
+.btn[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
 .pill{font:700 10px var(--f-data);letter-spacing:.1em;text-transform:uppercase;padding:3px 7px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
 .t1{color:var(--t1)}.t2{color:var(--t2)}.t3{color:var(--t3)}.t4{color:var(--t4)}
 .radar-ctl{position:absolute;left:var(--gl);right:var(--gr);bottom:12px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
@@ -158,6 +160,7 @@ input[type=range]{width:100%;accent-color:var(--amber)}
           <div><dt>Distance</dt><dd id="c-dst"></dd></div>
         </dl>
         <div class="row">
+          <button class="btn sm" data-act="path" aria-pressed="false">Path</button>
           <button class="btn" data-act="detail" id="c-more">Details</button>
           <button class="btn go" data-act="log" id="c-log">Log it</button>
         </div>
@@ -299,8 +302,8 @@ const S={mode:'demo',obs:{lat:45.52,lon:-122.68,alt:15},view:'point',look:{az:70
   objs:[],sel:null,lock:null,cand:null,detail:null,filters:{plane:1,heli:1,sat:1,ship:1,sky:1},range:25,northUp:false,fov:60,
   live:{},sats:[],src:0,st:{gps:'off',compass:'off',camera:'off',feed:'off',sats:'off'},down:false,absSeen:false,routes:{}};
 let LOG=[];
-try{const j=JSON.parse(localStorage.getItem('overhead.v1')||'{}');LOG=j.log||[];if(j.fov)S.fov=j.fov;if(j.range)S.range=j.range}catch(e){}
-const save=()=>{try{localStorage.setItem('overhead.v1',JSON.stringify({log:LOG,fov:S.fov,range:S.range}))}catch(e){}};
+try{const j=JSON.parse(localStorage.getItem('overhead.v1')||'{}');LOG=j.log||[];if(j.fov)S.fov=j.fov;if(j.range)S.range=j.range;S.path=!!j.path}catch(e){}
+const save=()=>{try{localStorage.setItem('overhead.v1',JSON.stringify({log:LOG,fov:S.fov,range:S.range,path:S.path}))}catch(e){}};
 
 /* ---------- geometry ---------- */
 const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
@@ -383,15 +386,41 @@ function airHtml(o){
   const live=o.id[0]==='a',hex=live?o.id.slice(1):'',okHex=/^[0-9a-f]{6}$/.test(hex),db=REG[hex]||{},priv=(o.flags&12)>0,yr=o.year,age=yr?new Date().getFullYear()-yr:0;
   const model=db.manufacturer?db.manufacturer+' '+(db.type||''):(o.desc||'');
   const owner=priv?'Withheld. The owner has asked for limited tracking display.':(db.registered_owner||o.own||(live?'':o.op)||'');
+  const al=ALOG[hex],dt=t=>new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  const area=!al?'':!al.since?'Logger has not run yet':al.visits?al.visits+(al.visits===1?' visit':' visits')+' since '+dt(al.since):'No visits logged since '+dt(al.since);
   const e=SEEN[hex],seen=!live?'Not counted in the sample sky':!e||e[2]<2?'First time this app has seen it near you':e[2]+' times since '+new Date(e[0]).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   const val=valueOf(o),r=(a,b)=>b?'<dt>'+a+'</dt><dd>'+esc(b)+'</dd>':'';
   let h='<h2>This aircraft</h2>';
   if(db.url_photo_thumbnail&&!priv)h+='<a href="'+esc(db.url_photo||db.url_photo_thumbnail)+'" target="_blank" rel="noopener"><img class="ph" src="'+esc(db.url_photo_thumbnail)+'" alt="Photo of '+esc(o.reg||o.cs)+'" loading="lazy"></a><p class="note" style="margin:0 0 10px">Photo: airport-data.com</p>';
-  h+='<dl class="spec">'+r('Tail number',o.reg)+r('ICAO hex',okHex?hex.toUpperCase():'')+r('Model',model)+r('Built',yr?yr+' ('+age+(age===1?' year':' years')+' old)':'')+r('Registered owner',owner)+r('Registered in',priv?'':db.registered_owner_country_name)+r('Flown by',o.op&&o.op!==owner&&live?o.op:'')+r('Seen near you',seen)+r('Rough value',val)+'</dl>';
+  h+='<dl class="spec">'+r('Tail number',o.reg)+r('ICAO hex',okHex?hex.toUpperCase():'')+r('Model',model)+r('Built',yr?yr+' ('+age+(age===1?' year':' years')+' old)':'')+r('Registered owner',owner)+r('Registered in',priv?'':db.registered_owner_country_name)+r('Flown by',o.op&&o.op!==owner&&live?o.op:'')+r('Seen near you',seen)+r('Area log, 24/7',area)+r('Rough value',val)+'</dl>';
   if(val&&!MILV[o.type])h+='<p class="note">Value is a model estimate from type and age, not an appraisal. Condition, engine time and avionics can move it a lot.</p>';
   if(live&&okHex&&!priv){const reg=o.reg||'';h+='<div class="links">'+(/^N[0-9]/.test(reg)?'<a href="https://registry.faa.gov/AircraftInquiry/Search/NNumberResult?nNumberTxt='+encodeURIComponent(reg)+'" target="_blank" rel="noopener">FAA record</a>':'')+'<a href="https://globe.adsbexchange.com/?icao='+hex+'" target="_blank" rel="noopener">Flight history</a>'+(reg?'<a href="https://www.flightaware.com/live/flight/'+encodeURIComponent(reg)+'" target="_blank" rel="noopener">FlightAware</a>':'')+'</div>'}
   return h;
 }
+const ALOG={};
+async function lookupSeen(o){
+  const hex=o.id.slice(1);if(!/^[0-9a-f]{6}$/.test(hex))return;
+  try{const r=await fetch('api/seen?hex='+hex);if(!r.ok)return;const j=await r.json();if(!('visits' in j))return;ALOG[hex]=j;
+    if(S.detail===o.id){const el=$('#d-air'),cur=find(o.id);if(el&&cur)el.innerHTML=airHtml(cur)}}catch(e){}
+}
+/* ---------- flight path ---------- */
+function pathOf(o){
+  if(o.kind!=='plane'&&o.kind!=='heli')return null;
+  const past=(o.tr||[]).slice();
+  if(o.id[0]==='d')for(let t=-240;t<0;t+=30)past.push(adv(o.lat,o.lon,o.alt,o.gs,o.trk,o.vr,t));
+  past.push([o.lat,o.lon,o.alt]);
+  const ahead=[[o.lat,o.lon,o.alt]];
+  for(let t=20;t<=180;t+=20){const p=adv(o.lat,o.lon,o.alt,o.gs||0,o.trk||0,o.vr,t);p[2]=Math.max(0,p[2]);ahead.push(p)}
+  return{past,ahead};
+}
+function strokePts(x,pts,dash){x.setLineDash(dash||[]);x.beginPath();let pen=false;for(const p of pts){if(!p){pen=false;continue}if(pen)x.lineTo(p[0],p[1]);else x.moveTo(p[0],p[1]);pen=true}x.stroke();x.setLineDash([])}
+function drawPath(x,o,toXY){
+  if(!S.path||!o)return;const P=pathOf(o);if(!P)return;
+  x.save();x.strokeStyle=COL.amber;x.lineWidth=2.5;x.lineJoin='round';x.globalAlpha=.95;strokePts(x,P.past.map(toXY));
+  x.lineWidth=2;x.globalAlpha=.75;strokePts(x,P.ahead.map(toXY),[6,6]);x.restore();
+}
+function gcPts(a,b,n){const A=ecef(a[0],a[1],0),Z=ecef(b[0],b[1],0),out=[];for(let i=0;i<=n;i++){const t=i/n,v=[A[0]+(Z[0]-A[0])*t,A[1]+(Z[1]-A[1])*t,A[2]+(Z[2]-A[2])*t];out.push([Math.atan2(v[2],Math.hypot(v[0],v[1]))/D,Math.atan2(v[1],v[0])/D])}return out}
+function updPath(){$$('[data-act=path]').forEach(b=>b.setAttribute('aria-pressed',!!S.path))}
 async function lookupAir(o){
   const hex=o.id.slice(1);if(REG[hex]||(o.flags&12)||!/^[0-9a-f]{6}$/.test(hex))return;REG[hex]={};
   try{const j=await(await fetch('https://api.adsbdb.com/v0/aircraft/'+hex)).json(),a=j&&j.response&&j.response.aircraft;
@@ -471,6 +500,7 @@ function drawAR(now){
     if(!S.cand||S.cand.id!==best.id)S.cand={id:best.id,t:now};
     else if(S.lock!==best.id&&now-S.cand.t>650){S.lock=best.id;try{navigator.vibrate&&navigator.vibrate(25)}catch(e){}updCard()}
   }else{S.cand=null;if(S.lock){S.lock=null;updCard()}}
+  drawPath(x,find(S.lock)||find(S.sel),p=>{const v=enu(p[0],p[1],p[2]),n=Math.hypot(v[0],v[1],v[2])||1;return proj([v[0]/n,v[1]/n,v[2]/n],B,W,H,f)});
   // reticle
   const cx=W/2,cy=H/2;x.strokeStyle=S.lock?COL.lock:COL.ink;x.lineWidth=1.5;x.globalAlpha=S.lock?1:.7;
   x.beginPath();x.arc(cx,cy,30,0,7);x.stroke();
@@ -509,6 +539,7 @@ function drawRadar(){
   const lookA=(camAz(B)-rot)*D,half=S.fov*D/2*Math.min(1,W/H*1.4);
   x.beginPath();x.moveTo(cx,cy);x.arc(cx,cy,R,lookA-Math.PI/2-half,lookA-Math.PI/2+half);x.closePath();x.fillStyle=COL.lock;x.globalAlpha=.12;x.fill();x.globalAlpha=1;
   x.fillStyle=COL.ink;x.beginPath();x.arc(cx,cy,4,0,7);x.fill();
+  drawPath(x,find(S.sel)||find(S.focus)||find(S.lock),p=>{const v=enu(p[0],p[1],p[2]),a=Math.atan2(v[0],v[1])-rot*D,r=Math.min(Math.hypot(v[0],v[1])/rm,1)*R;return[cx+Math.sin(a)*r,cy-Math.cos(a)*r]});
   RHITS=[];x.textAlign='left';x.font='700 10px "B612 Mono",monospace';
   const LB=[];for(const o of [...S.objs].sort((a,b)=>a.g-b.g)){if(o.kind==='sky')continue;
     const out=o.g>rm,r=Math.min(o.g/rm,1)*R,a=(o.az-rot)*D,px=cx+Math.sin(a)*r,py=cy-Math.cos(a)*r,on=o.id===S.sel||o.id===S.lock;
@@ -536,11 +567,16 @@ function drawMap(){
   const me=pt(S.obs.lat,S.obs.lon),hd=heading(basis())*D-Math.PI/2;
   x.beginPath();x.moveTo(me[0],me[1]);x.arc(me[0],me[1],64,hd-.5,hd+.5);x.closePath();x.fillStyle=COL.lock;x.globalAlpha=.2;x.fill();x.globalAlpha=1;
   x.beginPath();x.arc(me[0],me[1],6,0,7);x.fillStyle=COL.lock;x.fill();x.strokeStyle=COL.ink;x.lineWidth=2;x.stroke();
+  const tgt=find(S.detail)||find(S.focus)||find(S.sel)||find(S.lock);
+  if(S.path&&tgt){const rt=S.routes[tgt.cs];
+    if(rt&&rt.oc&&rt.dc&&typeof rt.oc[0]==='number'&&typeof rt.dc[0]==='number'){let pl=null;x.save();x.strokeStyle=COL.ink;x.globalAlpha=.55;x.lineWidth=1.5;
+      strokePts(x,gcPts(rt.oc,rt.dc,48).map(q=>{const far=pl!=null&&Math.abs(q[1]-pl)>180;pl=q[1];return far?null:pt(q[0],q[1])}),[2,6]);x.restore()}
+    drawPath(x,tgt,p=>pt(p[0],p[1]))}
   MHITS=[];const LB=[];x.textBaseline='middle';x.textAlign='left';x.lineJoin='round';
   const list=S.objs.filter(o=>o.lat!=null).map(o=>[o,pt(o.lat,o.lon)]).filter(e=>e[1][0]>-30&&e[1][0]<W+30&&e[1][1]>-30&&e[1][1]<H+30).sort((a,b)=>a[0].g-b[0].g);
   let n=0;
   for(const [o,p] of list){
-    const air=o.kind==='plane'||o.kind==='heli',on=o.id===S.sel||o.id===S.detail,col=on?COL.lock:COL[o.kind];if(air)n++;
+    const air=o.kind==='plane'||o.kind==='heli',on=o.id===S.sel||o.id===S.detail||o.id===S.focus,col=on?COL.lock:COL[o.kind];if(air)n++;
     if(air&&o.gs>40){const a=adv(o.lat,o.lon,0,o.gs,o.trk||0,0,60),q=pt(a[0],a[1]);x.strokeStyle=col;x.globalAlpha=.5;x.lineWidth=1;x.beginPath();x.moveTo(p[0],p[1]);x.lineTo(q[0],q[1]);x.stroke();x.globalAlpha=1}
     glyph(x,o.kind,p[0],p[1],on?11:9,(o.trk||0)*D,col,true);
     if(o.tier>=3&&!on){x.strokeStyle=COL.t4;x.lineWidth=1;x.beginPath();x.arc(p[0],p[1],16,0,7);x.stroke()}
@@ -601,10 +637,10 @@ function logCatch(id){
   if(cardId===o.id)updLogBtn(o);if(S.detail===id)openDetail(id);
 }
 function openDetail(id){
-  const o=find(id);if(!o)return;S.detail=id;const T=TYPES[o.type],done=logged(o),air=o.kind==='plane'||o.kind==='heli';
+  const o=find(id);if(!o)return;S.detail=S.focus=id;const T=TYPES[o.type],done=logged(o),air=o.kind==='plane'||o.kind==='heli';
   let h='<div class="sheet-h"><div><h1>'+esc(o.cs)+'</h1><p>'+esc(typeName(o))+(o.op?' · '+esc(o.op):'')+'</p></div><em class="pill t'+o.tier+'">'+TIER[o.tier]+'</em><button class="icon-btn" data-act="close" aria-label="Close">✕</button></div>';
   h+='<div id="d-route">'+routeHtml(o)+'</div><dl class="stats" id="d-live"></dl>';
-  h+='<div class="row" style="margin:14px 0"><button class="btn" data-act="guide" data-id="'+esc(o.id)+'">Guide me to it</button><button class="btn go" data-act="log" data-id="'+esc(o.id)+'"'+(done?' disabled':'')+'>'+(done?'In your logbook':'Log it  +'+PTS[o.tier])+'</button></div>';
+  h+='<div class="row" style="margin:14px 0"><button class="btn" data-act="guide" data-id="'+esc(o.id)+'">Guide me to it</button>'+(air?'<button class="btn sm" data-act="path" data-id="'+esc(o.id)+'" aria-pressed="'+!!S.path+'">Flight path</button>':'')+'<button class="btn go" data-act="log" data-id="'+esc(o.id)+'"'+(done?' disabled':'')+'>'+(done?'In your logbook':'Log it  +'+PTS[o.tier])+'</button></div>';
   if(air)h+='<div id="d-air">'+airHtml(o)+'</div>';
   if(T){h+='<h2>About the '+esc(T[0])+'</h2><dl class="spec"><dt>Role</dt><dd>'+T[2]+'</dd><dt>Built by</dt><dd>'+T[1]+'</dd><dt>Power</dt><dd>'+T[3]+'</dd><dt>Carries</dt><dd>'+T[4]+'</dd>'+(T[5]?'<dt>Range</dt><dd>'+num(T[5]*1.1508)+' mi</dd>':'')+'<dt>Flying since</dt><dd>'+T[7]+'</dd><dt>'+(T[10]==='heli'?'Rotor':'Wingspan')+'</dt><dd>'+T[6]+' ft</dd></dl>'
     +'<div class="span-bar"><span class="lbl">Size next to an A380 (261.6 ft)</span><div class="bar"><i style="width:'+Math.round(T[6]/261.6*100)+'%"></i></div></div><p class="fact">'+T[9]+'</p><p class="note">Typical figures. Variants and airline layouts differ.</p>'}
@@ -615,7 +651,7 @@ function openDetail(id){
   if(S.mode==='demo')h+='<p class="note">Sample data. Go live to see real traffic.</p>';
   $('#detail-p').innerHTML=h;$('#detail').hidden=false;updDetailLive();
   if(S.mode==='live'&&air&&o.cs&&!S.routes[o.cs])lookupRoute(o);
-  if(S.mode==='live'&&air)lookupAir(o);
+  if(S.mode==='live'&&air){lookupAir(o);lookupSeen(o)}
 }
 function routeHtml(o){
   const r=S.routes[o.cs]||(o.from?{from:o.from,to:o.to}:null);if(!r||!r.from)return'';
@@ -624,7 +660,7 @@ function routeHtml(o){
 async function lookupRoute(o){
   S.routes[o.cs]={};
   try{const j=await(await fetch('https://api.adsbdb.com/v0/callsign/'+encodeURIComponent(o.cs.replace(/\s/g,'')))).json(),f=j&&j.response&&j.response.flightroute;
-    if(f&&f.origin){const n=a=>(a.municipality||a.name||'')+' ('+(a.iata_code||a.icao_code||'')+')';S.routes[o.cs]={from:n(f.origin),to:f.destination?n(f.destination):''};
+    if(f&&f.origin){const n=a=>(a.municipality||a.name||'')+' ('+(a.iata_code||a.icao_code||'')+')';S.routes[o.cs]={from:n(f.origin),to:f.destination?n(f.destination):'',oc:[f.origin.latitude,f.origin.longitude],dc:f.destination?[f.destination.latitude,f.destination.longitude]:null};
       if(S.detail===o.id){const el=$('#d-route');if(el)el.innerHTML=routeHtml(o)}}}catch(e){}
 }
 function updDetailLive(){
@@ -686,7 +722,7 @@ async function poll(){
     ['https://opensky-network.org/api/states/all?lamin='+(qa-dg).toFixed(2)+'&lomin='+(qo-dl).toFixed(2)+'&lamax='+(qa+dg).toFixed(2)+'&lomax='+(qo+dl).toFixed(2),osky]];
   let ok=false;
   for(let i=0;i<SRC.length&&!ok;i++){const k=(S.src+i)%SRC.length;
-    try{const r=await fetch(SRC[k][0]);if(!r.ok)throw 0;const list=SRC[k][1](await r.json()),t=Date.now();for(const o of list){o.t=t;S.live[o.id]=o}S.src=k;ok=true}catch(e){}}
+    try{const r=await fetch(SRC[k][0]);if(!r.ok)throw 0;const list=SRC[k][1](await r.json()),t=Date.now();for(const o of list){o.t=t;const pv=S.live[o.id],tr=(pv&&pv.tr)||[],l=tr[tr.length-1];if(!l||l[0]!==o.lat0||l[1]!==o.lon0)tr.push([o.lat0,o.lon0,o.alt0]);if(tr.length>150)tr.shift();o.tr=tr;S.live[o.id]=o}S.src=k;ok=true}catch(e){}}
   const was=S.st.feed;S.st.feed=ok?'on':'bad';if(was!==S.st.feed){renderSensors();if(!ok)toast('Flight feed is not answering. Sun, Moon and satellites still work.')}
   pollT=setTimeout(poll,ok?10000:30000);
 }
@@ -712,6 +748,7 @@ document.addEventListener('click',e=>{
   if(b.dataset.view)return setView(b.dataset.view);
   if(b.dataset.range){S.range=+b.dataset.range;save();updRange();if(S.mode==='live')poll();return}
   if(b.dataset.filter){S.filters[b.dataset.filter]^=1;renderFilters();tick();renderList();return}
+  if(a==='path'){S.path=!S.path;if(S.path&&id)S.sel=id;const o=find(id||S.lock||S.sel);if(S.path&&o&&S.mode==='live'&&o.cs&&!S.routes[o.cs])lookupRoute(o);updPath();save();return}
   if(a==='locate'){if(MAP)MAP.setView([S.obs.lat,S.obs.lon],Math.max(MAP.getZoom(),10));return}
   if(a==='gnd'){S.showGnd=!S.showGnd;renderFilters();tick();renderList();return}
   if(a==='detail')openDetail(id);
@@ -752,7 +789,7 @@ function pick(H,c,e){const r=c.getBoundingClientRect(),x=e.clientX-r.left,y=e.cl
 
 /* ---------- boot ---------- */
 $('#fov').value=S.fov;$('#fov-v').textContent=S.fov+'°';
-renderFilters();updRange();renderSensors();tick();aimAtFirst();
+renderFilters();updRange();updPath();renderSensors();tick();aimAtFirst();
 setInterval(tick,250);
 setInterval(()=>{if(S.view==='list'&&!pdown)renderList()},1500);
 requestAnimationFrame(frame);
