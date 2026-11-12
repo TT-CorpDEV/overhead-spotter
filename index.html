@@ -559,16 +559,18 @@ function goDemo(){S.mode='demo';S.obs={lat:45.52,lon:-122.68,alt:15};S.sens=fals
   try{const v=$('#cam');v.srcObject&&v.srcObject.getTracks().forEach(t=>t.stop());v.srcObject=null}catch(e){}
   for(const k in S.st)S.st[k]='off';clearTimeout(pollT);renderSensors();tick();aimAtFirst()}
 const opOf=cs=>AIRLINE[(cs||'').slice(0,3)]||'';
-function readsb(j){return(j.ac||[]).filter(a=>a.lat!=null&&a.lon!=null).map(a=>{const cs=(a.flight||a.r||a.hex||'').trim(),t=a.t||'';
+function readsb(j){if(!j.ac&&!j.aircraft)throw 0;return(j.ac||j.aircraft).filter(a=>a.lat!=null&&a.lon!=null).map(a=>{const cs=(a.flight||a.r||a.hex||'').trim(),t=a.t||'';
   return{id:'a'+a.hex,kind:(a.category==='A7'||HELI.has(t))?'heli':'plane',cs:cs.toUpperCase(),reg:a.r||'',type:t,op:a.ownOp||opOf(cs),mil:(a.dbFlags&1)?1:0,
     lat0:a.lat,lon0:a.lon,alt0:(a.alt_baro==='ground'?0:(a.alt_baro??a.alt_geom??0))*0.3048,gs:a.gs||0,trk:a.track??a.true_heading??0,vr:a.baro_rate??a.geom_rate??0,sq:a.squawk||''}})}
-function osky(j){return(j.states||[]).filter(s=>s[5]!=null&&s[6]!=null).map(s=>{const cs=(s[1]||s[0]||'').trim();
+function osky(j){if(!('states' in j))throw 0;return(j.states||[]).filter(s=>s[5]!=null&&s[6]!=null).map(s=>{const cs=(s[1]||s[0]||'').trim();
   return{id:'a'+s[0],kind:s[17]===8?'heli':'plane',cs:cs.toUpperCase(),reg:'',type:'',op:opOf(cs),lat0:s[6],lon0:s[5],alt0:s[8]?0:(s[7]??s[13]??0),gs:(s[9]||0)*1.944,trk:s[10]||0,vr:(s[11]||0)*196.85,sq:s[14]||''}})}
 let pollT;
 async function poll(){
   clearTimeout(pollT);if(S.mode!=='live')return;
   const la=S.obs.lat.toFixed(2),lo=S.obs.lon.toFixed(2),nm=Math.min(250,Math.round(S.range*1.6*0.869)),dg=S.range*1.6/69,dl=dg/Math.cos(S.obs.lat*D);
-  const SRC=[['https://api.adsb.lol/v2/point/'+la+'/'+lo+'/'+nm,readsb],['https://api.airplanes.live/v2/point/'+la+'/'+lo+'/'+nm,readsb],
+  const fi='https://opendata.adsb.fi/api/v2/lat/'+la+'/lon/'+lo+'/dist/'+nm;
+  const SRC=[['feed/fi/lat/'+la+'/lon/'+lo+'/dist/'+nm,readsb],['feed/lol/point/'+la+'/'+lo+'/'+nm,readsb],['feed/live/point/'+la+'/'+lo+'/'+nm,readsb],
+    ['https://api.cors.lol/?url='+encodeURIComponent(fi),readsb],['https://api.adsb.lol/v2/point/'+la+'/'+lo+'/'+nm,readsb],['https://api.airplanes.live/v2/point/'+la+'/'+lo+'/'+nm,readsb],
     ['https://opensky-network.org/api/states/all?lamin='+(S.obs.lat-dg).toFixed(2)+'&lomin='+(S.obs.lon-dl).toFixed(2)+'&lamax='+(S.obs.lat+dg).toFixed(2)+'&lomax='+(S.obs.lon+dl).toFixed(2),osky]];
   let ok=false;
   for(let i=0;i<SRC.length&&!ok;i++){const k=(S.src+i)%SRC.length;
