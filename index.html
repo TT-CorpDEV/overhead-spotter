@@ -330,7 +330,7 @@ function tick(){
   list.push({id:'sun',kind:'sky',cs:'SUN',name:'The Sun',fix:c.sun},{id:'moon',kind:'sky',cs:'MOON',name:'The Moon',fix:c.moon});
   for(const o of list){geo(o);o.tier=tierOf(o)}
   S.all=list.filter(o=>!(o.kind==='sat'||o.kind==='sky')||o.el>0);
-  S.objs=S.all.filter(o=>S.filters[o.kind]);
+  S.objs=S.all.filter(o=>S.filters[o.kind]&&(S.showGnd||!o.gnd));
   if(S.lock&&!find(S.lock)){S.lock=null}
   if(S.sel&&!find(S.sel)){S.sel=null}
   updCard();updRare();
@@ -436,11 +436,11 @@ function drawRadar(){
   x.beginPath();x.moveTo(cx,cy);x.arc(cx,cy,R,lookA-Math.PI/2-half,lookA-Math.PI/2+half);x.closePath();x.fillStyle=COL.lock;x.globalAlpha=.12;x.fill();x.globalAlpha=1;
   x.fillStyle=COL.ink;x.beginPath();x.arc(cx,cy,4,0,7);x.fill();
   RHITS=[];x.textAlign='left';x.font='700 10px "B612 Mono",monospace';
-  for(const o of S.objs){if(o.kind==='sky')continue;
+  const LB=[];for(const o of [...S.objs].sort((a,b)=>a.g-b.g)){if(o.kind==='sky')continue;
     const out=o.g>rm,r=Math.min(o.g/rm,1)*R,a=(o.az-rot)*D,px=cx+Math.sin(a)*r,py=cy-Math.cos(a)*r,on=o.id===S.sel||o.id===S.lock;
     if(out&&o.kind!=='sat'&&!on)continue;
     x.globalAlpha=out?.55:1;glyph(x,o.kind,px,py,on?10:8,((o.trk||0)-rot)*D,on?COL.lock:COL[o.kind],true);
-    if(!out||on){x.fillStyle=on?COL.lock:COL.mute;x.fillText(o.cs,px+12,py)}
+    if(!out||on){const w=o.cs.length*6.2+4,bx=px+12;if(on||!LB.some(b=>bx<b[0]+b[2]&&bx+w>b[0]&&Math.abs(py-b[1])<11)){LB.push([bx,py,w]);x.fillStyle=on?COL.lock:COL.mute;x.fillText(o.cs,bx,py)}}
     x.globalAlpha=1;RHITS.push([px,py,o.id]);
   }
 }
@@ -467,7 +467,7 @@ function updRare(){
 }
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3800)}
 function setView(v){S.view=v;for(const n of['point','radar','list','hangar'])$('#v-'+n).hidden=n!==v;$$('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.view===v));if(v==='list')renderList();if(v==='hangar')renderHangar()}
-function renderFilters(){$('#filters').innerHTML=Object.keys(KIND).map(k=>'<button data-filter="'+k+'" aria-pressed="'+!!S.filters[k]+'"><i class="dot" style="background:var(--k-'+k+')"></i>'+KIND[k]+(k==='sky'?'':'s')+'</button>').join('')}
+function renderFilters(){$('#filters').innerHTML=Object.keys(KIND).map(k=>'<button data-filter="'+k+'" aria-pressed="'+!!S.filters[k]+'"><i class="dot" style="background:var(--k-'+k+')"></i>'+KIND[k]+(k==='sky'?'':'s')+'</button>').join('')+'<button data-act="gnd" aria-pressed="'+!!S.showGnd+'">Parked aircraft</button>'}
 function renderList(){
   const l=[...S.objs].sort((a,b)=>(isFinite(a.dist)?a.dist:9e12)-(isFinite(b.dist)?b.dist:9e12));
   $('#list').innerHTML=l.length?l.map(o=>'<button class="item" data-act="detail" data-id="'+esc(o.id)+'"><i class="dot" style="background:var(--k-'+o.kind+')"></i><span class="mid"><b>'+esc(o.cs)+(logged(o)?' ✓':'')+'</b><span>'+esc(typeName(o))+(o.op?' · '+esc(o.op):'')+'</span></span><span class="end"><b>'+(isFinite(o.dist)?fDst(o):'—')+'</b>'+compass(o.az)+' · '+(o.kind==='plane'||o.kind==='heli'?fAlt(o):'<span class="t'+o.tier+'">'+TIER[o.tier]+'</span>')+'</span></button>').join('')
@@ -560,10 +560,10 @@ function goDemo(){S.mode='demo';S.obs={lat:45.52,lon:-122.68,alt:15};S.sens=fals
   for(const k in S.st)S.st[k]='off';clearTimeout(pollT);renderSensors();tick();aimAtFirst()}
 const opOf=cs=>AIRLINE[(cs||'').slice(0,3)]||'';
 function readsb(j){if(!j.ac&&!j.aircraft)throw 0;return(j.ac||j.aircraft).filter(a=>a.lat!=null&&a.lon!=null).map(a=>{const cs=(a.flight||a.r||a.hex||'').trim(),t=a.t||'';
-  return{id:'a'+a.hex,kind:(a.category==='A7'||HELI.has(t))?'heli':'plane',cs:cs.toUpperCase(),reg:a.r||'',type:t,op:a.ownOp||opOf(cs),mil:(a.dbFlags&1)?1:0,
+  return{id:'a'+a.hex,gnd:a.alt_baro==='ground',kind:(a.category==='A7'||HELI.has(t))?'heli':'plane',cs:cs.toUpperCase(),reg:a.r||'',type:t,op:a.ownOp||opOf(cs),mil:(a.dbFlags&1)?1:0,
     lat0:a.lat,lon0:a.lon,alt0:(a.alt_baro==='ground'?0:(a.alt_baro??a.alt_geom??0))*0.3048,gs:a.gs||0,trk:a.track??a.true_heading??0,vr:a.baro_rate??a.geom_rate??0,sq:a.squawk||''}})}
 function osky(j){if(!('states' in j))throw 0;return(j.states||[]).filter(s=>s[5]!=null&&s[6]!=null).map(s=>{const cs=(s[1]||s[0]||'').trim();
-  return{id:'a'+s[0],kind:s[17]===8?'heli':'plane',cs:cs.toUpperCase(),reg:'',type:'',op:opOf(cs),lat0:s[6],lon0:s[5],alt0:s[8]?0:(s[7]??s[13]??0),gs:(s[9]||0)*1.944,trk:s[10]||0,vr:(s[11]||0)*196.85,sq:s[14]||''}})}
+  return{id:'a'+s[0],gnd:!!s[8],kind:s[17]===8?'heli':'plane',cs:cs.toUpperCase(),reg:'',type:'',op:opOf(cs),lat0:s[6],lon0:s[5],alt0:s[8]?0:(s[7]??s[13]??0),gs:(s[9]||0)*1.944,trk:s[10]||0,vr:(s[11]||0)*196.85,sq:s[14]||''}})}
 let pollT;
 async function poll(){
   clearTimeout(pollT);if(S.mode!=='live')return;
@@ -580,11 +580,16 @@ async function poll(){
 }
 async function loadSats(){
   if(!window.satellite){S.st.sats='bad';renderSensors();return}
-  try{const got=[];
+  let rows=null,old=null;
+  try{const c=JSON.parse(localStorage.getItem('overhead.tle')||'null');if(c&&c.rows&&c.rows.length){old=c.rows;if(Date.now()-c.t<432e5)rows=old}}catch(e){}
+  if(!rows)try{const got=[];
     for(const [g,max,re] of[['stations',2,/^(ISS \(ZARYA\)|CSS \(TIANHE\))/],['visual',70,/./]]){
       const tx=await(await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP='+g+'&FORMAT=tle')).text(),L=tx.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);let n=0;
-      for(let i=0;i+2<L.length&&n<max;i+=3){if(!re.test(L[i])||got.some(s=>s.l1===L[i+1]))continue;let name=L[i].replace(/\s*\(.*\)/,'');got.push({name,l1:L[i+1],rec:satellite.twoline2satrec(L[i+1],L[i+2])});n++}}
-    S.sats=got;S.st.sats=got.length?'on':'bad'}catch(e){S.st.sats='bad'}
+      for(let i=0;i+2<L.length&&n<max;i+=3){if(!re.test(L[i])||got.some(s=>s[1]===L[i+1]))continue;got.push([L[i].replace(/\s*\(.*\)/,''),L[i+1],L[i+2]]);n++}}
+    if(got.length){rows=got;try{localStorage.setItem('overhead.tle',JSON.stringify({t:Date.now(),rows}))}catch(e){}}}catch(e){}
+  rows=rows||old;
+  try{S.sats=(rows||[]).map(r=>({name:r[0],l1:r[1],rec:satellite.twoline2satrec(r[1],r[2])}))}catch(e){S.sats=[]}
+  S.st.sats=S.sats.length?'on':'bad';
   renderSensors();
 }
 
@@ -595,6 +600,7 @@ document.addEventListener('click',e=>{
   if(b.dataset.view)return setView(b.dataset.view);
   if(b.dataset.range){S.range=+b.dataset.range;save();updRange();if(S.mode==='live')poll();return}
   if(b.dataset.filter){S.filters[b.dataset.filter]^=1;renderFilters();tick();renderList();return}
+  if(a==='gnd'){S.showGnd=!S.showGnd;renderFilters();tick();renderList();return}
   if(a==='detail')openDetail(id);
   else if(a==='log')logCatch(id);
   else if(a==='guide'){S.sel=id;$('#detail').hidden=true;S.detail=null;setView('point');cardId=null;updCard()}
