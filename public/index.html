@@ -111,6 +111,11 @@ h2:first-child{margin-top:0}
 .ph{display:block;width:100%;max-width:320px;border-radius:10px;margin:0 0 4px}
 .links{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .links a{color:var(--lock);font-weight:700;padding:8px 10px;border:1px solid var(--line);border-radius:10px;text-decoration:none}
+.search{display:flex;gap:8px;margin-bottom:10px}
+.search input{flex:1;min-width:0;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:inherit}
+.bars{display:flex;align-items:flex-end;gap:2px;height:70px;margin-top:6px}
+.bars i{flex:1;background:var(--amber);border-radius:2px 2px 0 0;min-height:2px}
+.axis{display:flex;justify-content:space-between;font:400 10px var(--f-data);color:var(--mute);margin-top:4px}
 .empty{color:var(--mute);background:var(--panel);border:1px dashed var(--line);border-radius:12px;padding:14px}
 .tabs{display:grid;grid-template-columns:repeat(5,1fr);background:var(--panel);border-top:1px solid var(--line);padding-left:var(--gl);padding-right:var(--gr)}
 .tabs button{padding:9px 0 10px;display:flex;flex-direction:column;align-items:center;gap:3px;font:700 10px var(--f-data);letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
@@ -188,6 +193,7 @@ input[type=range]{width:100%;accent-color:var(--amber)}
     </section>
 
     <section class="view scroll" id="v-list" hidden>
+      <form class="search" id="qform"><input id="q" type="search" placeholder="Callsign, tail number, type or airline" autocomplete="off" aria-label="Search aircraft"><button class="btn sm" type="submit">Find</button></form>
       <div class="filters" id="filters"></div>
       <div class="list" id="list"></div>
     </section>
@@ -210,6 +216,12 @@ input[type=range]{width:100%;accent-color:var(--amber)}
       <button class="icon-btn" data-act="close" aria-label="Close">✕</button></div>
     <div id="sensor-rows"></div>
     <div class="row" style="margin-top:14px"><button class="btn go" data-act="live" id="live-btn">Go live</button><button class="btn" data-act="demo">Use sample sky</button></div>
+    <h2>Alerts</h2>
+    <p class="note" style="margin-top:0">Get a notification when a watchlist, rare, military or emergency aircraft enters the logged area, even with the app closed.</p>
+    <div class="row"><button class="btn" data-act="push" id="push-btn">Turn on alerts</button></div>
+    <h2>Compass alignment</h2>
+    <p class="note" style="margin-top:0">If labels sit to one side of the real aircraft, aim the ring at the Sun or Moon to correct it. Never look straight at the Sun. Current correction: <span id="az-v">0°</span></p>
+    <div class="row"><button class="btn" data-act="align">Align in 5 seconds</button><button class="btn sm" data-act="alignreset">Reset</button></div>
     <h2>Scope zoom match</h2>
     <label class="lbl" for="fov">Field of view <span id="fov-v">60°</span></label>
     <input type="range" id="fov" min="40" max="80" value="60">
@@ -302,8 +314,8 @@ const S={mode:'demo',obs:{lat:45.52,lon:-122.68,alt:15},view:'point',look:{az:70
   objs:[],sel:null,lock:null,cand:null,detail:null,filters:{plane:1,heli:1,sat:1,ship:1,sky:1},range:25,northUp:false,fov:60,
   live:{},sats:[],src:0,st:{gps:'off',compass:'off',camera:'off',feed:'off',sats:'off'},down:false,absSeen:false,routes:{}};
 let LOG=[];
-try{const j=JSON.parse(localStorage.getItem('overhead.v1')||'{}');LOG=j.log||[];if(j.fov)S.fov=j.fov;if(j.range)S.range=j.range;S.path=!!j.path}catch(e){}
-const save=()=>{try{localStorage.setItem('overhead.v1',JSON.stringify({log:LOG,fov:S.fov,range:S.range,path:S.path}))}catch(e){}};
+try{const j=JSON.parse(localStorage.getItem('overhead.v1')||'{}');LOG=j.log||[];if(j.fov)S.fov=j.fov;if(j.range)S.range=j.range;S.path=!!j.path;S.azOff=+j.az||0}catch(e){}
+const save=()=>{try{localStorage.setItem('overhead.v1',JSON.stringify({log:LOG,fov:S.fov,range:S.range,path:S.path,az:S.azOff||0}))}catch(e){}};
 
 /* ---------- geometry ---------- */
 const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
@@ -338,7 +350,7 @@ function celestial(date,lat,lon){
 }
 
 /* ---------- objects ---------- */
-function tierOf(o){if(o.kind==='plane'||o.kind==='heli')return Math.max((TYPES[o.type]||[])[8]||1,o.mil?3:0);if(o.kind==='sat')return /^(ISS|CSS)/.test(o.cs)?3:2;if(o.kind==='ship')return 2;return 1}
+function tierOf(o){if(o.emg)return 4;if(o.kind==='plane'||o.kind==='heli')return Math.max((TYPES[o.type]||[])[8]||1,o.mil?3:0);if(o.kind==='sat')return /^(ISS|CSS)/.test(o.cs)?3:2;if(o.kind==='ship')return 2;return 1}
 const typeName=o=>(TYPES[o.type]||[])[0]||o.name||o.desc||o.type||KIND[o.kind];
 const keyOf=o=>o.kind+':'+(o.reg||o.cs||o.id);
 const logged=o=>LOG.some(x=>x.key===keyOf(o));
@@ -406,7 +418,7 @@ async function lookupSeen(o){
 /* ---------- flight path ---------- */
 function pathOf(o){
   if(o.kind!=='plane'&&o.kind!=='heli')return null;
-  const past=(o.tr||[]).slice();
+  const sv=TRK[o.id.slice(1)],past=(sv?sv.filter(p=>p[0]<(o.t0||0)).map(p=>[p[1],p[2],p[3]*0.3048]):[]).concat(o.tr||[]);
   if(o.id[0]==='d')for(let t=-240;t<0;t+=30)past.push(adv(o.lat,o.lon,o.alt,o.gs,o.trk,o.vr,t));
   past.push([o.lat,o.lon,o.alt]);
   const ahead=[[o.lat,o.lon,o.alt]];
@@ -431,6 +443,8 @@ function tick(){
   const c=celestial(now,S.obs.lat,S.obs.lon);
   list.push({id:'sun',kind:'sky',cs:'SUN',name:'The Sun',fix:c.sun},{id:'moon',kind:'sky',cs:'MOON',name:'The Moon',fix:c.moon});
   for(const o of list){geo(o);o.tier=tierOf(o)}
+  for(const o of list)if(o.id[0]==='a'){o.w=WATCH.has(o.id.slice(1));if(o.w||o.emg)announce(o)}
+  if(S.alignAt&&now>S.alignAt)doAlign();
   if(S.mode==='live'){for(const o of list)if(o.id[0]==='a'&&o.g<40234)noteSeen(o.id.slice(1),now);if(seenDirty&&now-seenT>20000)saveSeen(now)}
   S.all=list.filter(o=>!(o.kind==='sat'||o.kind==='sky')||o.el>0);
   S.objs=S.all.filter(o=>S.filters[o.kind]&&(S.showGnd||!o.gnd));
@@ -489,7 +503,7 @@ function drawAR(now){
   vis.sort((a,b)=>a[3]-b[3]);
   x.font='700 11px "B612 Mono",monospace';x.textBaseline='middle';
   vis.forEach(([o,p,rot],i)=>{
-    const on=o.id===S.lock||o.id===S.sel,col=on?COL.lock:COL[o.kind];
+    const on=o.id===S.lock||o.id===S.sel,col=on?COL.lock:kc(o);
     glyph(x,o.kind,p[0],p[1],o.kind==='sky'?13:on?11:9,rot,col,true);
     if(o.tier>=3&&!on){x.strokeStyle=COL.t4;x.lineWidth=1;x.beginPath();x.arc(p[0],p[1],16,0,7);x.stroke()}
     if(i<8||on){x.fillStyle=col;x.fillText(o.cs,p[0]+16,p[1]-6);x.fillStyle=COL.mute;x.font='400 10px "B612 Mono",monospace';x.fillText(isFinite(o.dist)?fDst(o):o.name,p[0]+16,p[1]+7);x.font='700 11px "B612 Mono",monospace'}
@@ -544,7 +558,7 @@ function drawRadar(){
   const LB=[];for(const o of [...S.objs].sort((a,b)=>a.g-b.g)){if(o.kind==='sky')continue;
     const out=o.g>rm,r=Math.min(o.g/rm,1)*R,a=(o.az-rot)*D,px=cx+Math.sin(a)*r,py=cy-Math.cos(a)*r,on=o.id===S.sel||o.id===S.lock;
     if(out&&o.kind!=='sat'&&!on)continue;
-    x.globalAlpha=out?.55:1;glyph(x,o.kind,px,py,on?10:8,((o.trk||0)-rot)*D,on?COL.lock:COL[o.kind],true);
+    x.globalAlpha=out?.55:1;glyph(x,o.kind,px,py,on?10:8,((o.trk||0)-rot)*D,on?COL.lock:kc(o),true);
     if(!out||on){const w=o.cs.length*6.2+4,bx=px+12;if(on||!LB.some(b=>bx<b[0]+b[2]&&bx+w>b[0]&&Math.abs(py-b[1])<11)){LB.push([bx,py,w]);x.fillStyle=on?COL.lock:COL.mute;x.fillText(o.cs,bx,py)}}
     x.globalAlpha=1;RHITS.push([px,py,o.id]);
   }
@@ -576,7 +590,7 @@ function drawMap(){
   const list=S.objs.filter(o=>o.lat!=null).map(o=>[o,pt(o.lat,o.lon)]).filter(e=>e[1][0]>-30&&e[1][0]<W+30&&e[1][1]>-30&&e[1][1]<H+30).sort((a,b)=>a[0].g-b[0].g);
   let n=0;
   for(const [o,p] of list){
-    const air=o.kind==='plane'||o.kind==='heli',on=o.id===S.sel||o.id===S.detail||o.id===S.focus,col=on?COL.lock:COL[o.kind];if(air)n++;
+    const air=o.kind==='plane'||o.kind==='heli',on=o.id===S.sel||o.id===S.detail||o.id===S.focus,col=on?COL.lock:kc(o);if(air)n++;
     if(air&&o.gs>40){const a=adv(o.lat,o.lon,0,o.gs,o.trk||0,0,60),q=pt(a[0],a[1]);x.strokeStyle=col;x.globalAlpha=.5;x.lineWidth=1;x.beginPath();x.moveTo(p[0],p[1]);x.lineTo(q[0],q[1]);x.stroke();x.globalAlpha=1}
     glyph(x,o.kind,p[0],p[1],on?11:9,(o.trk||0)*D,col,true);
     if(o.tier>=3&&!on){x.strokeStyle=COL.t4;x.lineWidth=1;x.beginPath();x.arc(p[0],p[1],16,0,7);x.stroke()}
@@ -613,14 +627,14 @@ let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;
 function setView(v){S.view=v;for(const n of['point','radar','map','list','hangar'])$('#v-'+n).hidden=n!==v;$$('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.view===v));if(v==='map')openMap();if(v==='list')renderList();if(v==='hangar')renderHangar()}
 function renderFilters(){$('#mfilters').innerHTML=$('#filters').innerHTML=Object.keys(KIND).map(k=>'<button data-filter="'+k+'" aria-pressed="'+!!S.filters[k]+'"><i class="dot" style="background:var(--k-'+k+')"></i>'+KIND[k]+(k==='sky'?'':'s')+'</button>').join('')+'<button data-act="gnd" aria-pressed="'+!!S.showGnd+'">Parked aircraft</button>'}
 function renderList(){
-  const l=[...S.objs].sort((a,b)=>(isFinite(a.dist)?a.dist:9e12)-(isFinite(b.dist)?b.dist:9e12));
+  const qq=($('#q').value||'').toUpperCase().replace(/\s+/g,''),l=S.objs.filter(o=>!qq||[o.cs,o.reg,o.type,o.op,typeName(o)].join('|').toUpperCase().replace(/\s+/g,'').includes(qq)).sort((a,b)=>(isFinite(a.dist)?a.dist:9e12)-(isFinite(b.dist)?b.dist:9e12));
   $('#list').innerHTML=l.length?l.map(o=>'<button class="item" data-act="detail" data-id="'+esc(o.id)+'"><i class="dot" style="background:var(--k-'+o.kind+')"></i><span class="mid"><b>'+esc(o.cs)+(logged(o)?' ✓':'')+'</b><span>'+esc(typeName(o))+(o.op?' · '+esc(o.op):'')+'</span></span><span class="end"><b>'+(isFinite(o.dist)?fDst(o):'—')+'</b>'+compass(o.az)+' · '+(o.kind==='plane'||o.kind==='heli'?fAlt(o):'<span class="t'+o.tier+'">'+TIER[o.tier]+'</span>')+'</span></button>').join('')
     :'<div class="empty">Nothing in range with these filters. Turn a filter back on, or widen the range on the Radar tab.</div>';
 }
 function renderHangar(){
   const pts=LOG.reduce((s,x)=>s+x.pts,0),lvl=Math.floor(Math.sqrt(pts/50))+1,lo=50*(lvl-1)**2,hi=50*lvl**2,types=new Set(LOG.filter(x=>x.type&&TYPES[x.type]).map(x=>x.type)),nT=Object.keys(TYPES).length;
   const got=BADGES.filter(b=>b[3](LOG)).length;
-  $('#v-hangar').innerHTML='<h2>Spotter rank</h2><div class="score"><div><span class="lbl">Level</span><b>'+lvl+'</b></div><div><span class="lbl">Points</span><b>'+num(pts)+'</b></div><div><span class="lbl">Catches</span><b>'+LOG.length+'</b></div></div>'
+  $('#v-hangar').innerHTML='<div class="row" style="margin-bottom:16px"><button class="btn" data-act="alog">Area log, 24/7</button><button class="btn" data-act="csv">Export logbook</button></div><h2>Spotter rank</h2><div class="score"><div><span class="lbl">Level</span><b>'+lvl+'</b></div><div><span class="lbl">Points</span><b>'+num(pts)+'</b></div><div><span class="lbl">Catches</span><b>'+LOG.length+'</b></div></div>'
    +'<div class="bar" aria-label="Progress to next level"><i style="width:'+Math.round((pts-lo)/(hi-lo)*100)+'%"></i></div><p class="note">'+num(hi-pts)+' points to level '+(lvl+1)+'. Rare catches are worth '+PTS[3]+', Epic '+PTS[4]+'.</p>'
    +'<h2>Badges · '+got+' of '+BADGES.length+'</h2><div class="badges">'+BADGES.map(b=>{const on=b[3](LOG);return'<div class="badge'+(on?' on':'')+'"><em>'+(on?'Earned':'Locked')+'</em><b>'+b[1]+'</b><span>'+b[2]+'</span></div>'}).join('')+'</div>'
    +'<h2>Type guide · '+types.size+' of '+nT+'</h2><div class="bar"><i style="width:'+Math.round(types.size/nT*100)+'%"></i></div>'
@@ -640,7 +654,7 @@ function openDetail(id){
   const o=find(id);if(!o)return;S.detail=S.focus=id;const T=TYPES[o.type],done=logged(o),air=o.kind==='plane'||o.kind==='heli';
   let h='<div class="sheet-h"><div><h1>'+esc(o.cs)+'</h1><p>'+esc(typeName(o))+(o.op?' · '+esc(o.op):'')+'</p></div><em class="pill t'+o.tier+'">'+TIER[o.tier]+'</em><button class="icon-btn" data-act="close" aria-label="Close">✕</button></div>';
   h+='<div id="d-route">'+routeHtml(o)+'</div><dl class="stats" id="d-live"></dl>';
-  h+='<div class="row" style="margin:14px 0"><button class="btn" data-act="guide" data-id="'+esc(o.id)+'">Guide me to it</button>'+(air?'<button class="btn sm" data-act="path" data-id="'+esc(o.id)+'" aria-pressed="'+!!S.path+'">Flight path</button>':'')+'<button class="btn go" data-act="log" data-id="'+esc(o.id)+'"'+(done?' disabled':'')+'>'+(done?'In your logbook':'Log it  +'+PTS[o.tier])+'</button></div>';
+  h+='<div class="row" style="margin:14px 0"><button class="btn" data-act="guide" data-id="'+esc(o.id)+'">Guide me to it</button>'+(air?'<button class="btn sm" data-act="path" data-id="'+esc(o.id)+'" aria-pressed="'+!!S.path+'">Flight path</button><button class="btn sm" data-act="watch" data-id="'+esc(o.id)+'" aria-pressed="'+(o.id[0]==='a'&&WATCH.has(o.id.slice(1)))+'">Watch</button>':'')+'<button class="btn go" data-act="log" data-id="'+esc(o.id)+'"'+(done?' disabled':'')+'>'+(done?'In your logbook':'Log it  +'+PTS[o.tier])+'</button></div>';
   if(air)h+='<div id="d-air">'+airHtml(o)+'</div>';
   if(T){h+='<h2>About the '+esc(T[0])+'</h2><dl class="spec"><dt>Role</dt><dd>'+T[2]+'</dd><dt>Built by</dt><dd>'+T[1]+'</dd><dt>Power</dt><dd>'+T[3]+'</dd><dt>Carries</dt><dd>'+T[4]+'</dd>'+(T[5]?'<dt>Range</dt><dd>'+num(T[5]*1.1508)+' mi</dd>':'')+'<dt>Flying since</dt><dd>'+T[7]+'</dd><dt>'+(T[10]==='heli'?'Rotor':'Wingspan')+'</dt><dd>'+T[6]+' ft</dd></dl>'
     +'<div class="span-bar"><span class="lbl">Size next to an A380 (261.6 ft)</span><div class="bar"><i style="width:'+Math.round(T[6]/261.6*100)+'%"></i></div></div><p class="fact">'+T[9]+'</p><p class="note">Typical figures. Variants and airline layouts differ.</p>'}
@@ -651,16 +665,16 @@ function openDetail(id){
   if(S.mode==='demo')h+='<p class="note">Sample data. Go live to see real traffic.</p>';
   $('#detail-p').innerHTML=h;$('#detail').hidden=false;updDetailLive();
   if(S.mode==='live'&&air&&o.cs&&!S.routes[o.cs])lookupRoute(o);
-  if(S.mode==='live'&&air){lookupAir(o);lookupSeen(o)}
+  if(S.mode==='live'&&air){lookupAir(o);lookupSeen(o);lookupTrack(o)}
 }
 function routeHtml(o){
   const r=S.routes[o.cs]||(o.from?{from:o.from,to:o.to}:null);if(!r||!r.from)return'';
-  return'<div class="route"><span>'+esc(r.from)+'</span>'+(r.to?'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12h16M14 6l6 6-6 6"/></svg><span>'+esc(r.to)+'</span>':'')+'</div>';
+  return'<div class="route"><span>'+esc(r.from)+'</span>'+(r.to?'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12h16M14 6l6 6-6 6"/></svg><span>'+esc(r.to)+'</span>':'')+'</div>'+(r.oi||r.di?'<div class="links" style="margin:-2px 0 12px">'+[r.oi,r.di].filter(Boolean).map(c=>'<a href="https://www.liveatc.net/search/?icao='+encodeURIComponent(c)+'" target="_blank" rel="noopener">Tower audio '+esc(c)+'</a>').join('')+'</div>':'');
 }
 async function lookupRoute(o){
   S.routes[o.cs]={};
   try{const j=await(await fetch('https://api.adsbdb.com/v0/callsign/'+encodeURIComponent(o.cs.replace(/\s/g,'')))).json(),f=j&&j.response&&j.response.flightroute;
-    if(f&&f.origin){const n=a=>(a.municipality||a.name||'')+' ('+(a.iata_code||a.icao_code||'')+')';S.routes[o.cs]={from:n(f.origin),to:f.destination?n(f.destination):'',oc:[f.origin.latitude,f.origin.longitude],dc:f.destination?[f.destination.latitude,f.destination.longitude]:null};
+    if(f&&f.origin){const n=a=>(a.municipality||a.name||'')+' ('+(a.iata_code||a.icao_code||'')+')';S.routes[o.cs]={from:n(f.origin),to:f.destination?n(f.destination):'',oc:[f.origin.latitude,f.origin.longitude],dc:f.destination?[f.destination.latitude,f.destination.longitude]:null,oi:f.origin.icao_code||'',di:(f.destination&&f.destination.icao_code)||''};
       if(S.detail===o.id){const el=$('#d-route');if(el)el.innerHTML=routeHtml(o)}}}catch(e){}
 }
 function updDetailLive(){
@@ -680,7 +694,7 @@ function renderSensors(){
 /* ---------- live mode ---------- */
 function onOri(ev){
   if(ev.type==='deviceorientationabsolute')S.absSeen=true;else if(S.absSeen&&ev.webkitCompassHeading==null)return;
-  let al=ev.alpha;if(ev.webkitCompassHeading!=null)al=360-ev.webkitCompassHeading;if(al==null||ev.beta==null)return;
+  let al=ev.alpha;if(ev.webkitCompassHeading!=null)al=360-ev.webkitCompassHeading;if(al==null||ev.beta==null)return;al-=S.azOff||0;
   const a=al*D,b=ev.beta*D,g=(ev.gamma||0)*D,cA=Math.cos(a),sA=Math.sin(a),cB=Math.cos(b),sB=Math.sin(b),cG=Math.cos(g),sG=Math.sin(g);
   const nb={r:[cA*cG-sA*sB*sG,cG*sA+cA*sB*sG,-cB*sG],u:[-cB*sA,cA*cB,sB],c:[-(cG*sA*sB+cA*sG),-(sA*sG-cA*cG*sB),-(cB*cG)]};
   if(S.basis){const k=.25;for(const n of'ruc')for(let i=0;i<3;i++)nb[n][i]=S.basis[n][i]+(nb[n][i]-S.basis[n][i])*k}
@@ -706,7 +720,7 @@ function goDemo(){S.mode='demo';S.obs={lat:45.52,lon:-122.68,alt:15};S.sens=fals
   for(const k in S.st)S.st[k]='off';clearTimeout(pollT);if(MAP)MAP.setView([S.obs.lat,S.obs.lon]);renderSensors();tick();aimAtFirst()}
 const opOf=cs=>AIRLINE[(cs||'').slice(0,3)]||'';
 function readsb(j){if(!j.ac&&!j.aircraft)throw 0;return(j.ac||j.aircraft).filter(a=>a.lat!=null&&a.lon!=null).map(a=>{const cs=(a.flight||a.r||a.hex||'').trim(),t=a.t||'';
-  return{id:'a'+a.hex,gnd:a.alt_baro==='ground',kind:(a.category==='A7'||HELI.has(t))?'heli':'plane',cs:cs.toUpperCase(),reg:a.r||'',type:t,op:opOf(cs)||((a.dbFlags&12)?'':a.ownOp)||'',own:(a.dbFlags&12)?'':a.ownOp||'',desc:a.desc||'',year:+a.year||0,flags:a.dbFlags||0,mil:(a.dbFlags&1)?1:0,
+  return{id:'a'+a.hex,gnd:a.alt_baro==='ground',kind:(a.category==='A7'||HELI.has(t))?'heli':'plane',cs:cs.toUpperCase(),reg:a.r||'',type:t,op:opOf(cs)||((a.dbFlags&12)?'':a.ownOp)||'',own:(a.dbFlags&12)?'':a.ownOp||'',desc:a.desc||'',year:+a.year||0,flags:a.dbFlags||0,mil:(a.dbFlags&1)?1:0,emg:a.squawk==='7500'||a.squawk==='7600'||a.squawk==='7700',
     lat0:a.lat,lon0:a.lon,alt0:(a.alt_baro==='ground'?0:(a.alt_baro??a.alt_geom??0))*0.3048,gs:a.gs||0,trk:a.track??a.true_heading??0,vr:a.baro_rate??a.geom_rate??0,sq:a.squawk||''}})}
 function osky(j){if(!('states' in j))throw 0;return(j.states||[]).filter(s=>s[5]!=null&&s[6]!=null).map(s=>{const cs=(s[1]||s[0]||'').trim();
   return{id:'a'+s[0],gnd:!!s[8],kind:s[17]===8?'heli':'plane',cs:cs.toUpperCase(),reg:'',type:'',op:opOf(cs),lat0:s[6],lon0:s[5],alt0:s[8]?0:(s[7]??s[13]??0),gs:(s[9]||0)*1.944,trk:s[10]||0,vr:(s[11]||0)*196.85,sq:s[14]||''}})}
@@ -722,7 +736,7 @@ async function poll(){
     ['https://opensky-network.org/api/states/all?lamin='+(qa-dg).toFixed(2)+'&lomin='+(qo-dl).toFixed(2)+'&lamax='+(qa+dg).toFixed(2)+'&lomax='+(qo+dl).toFixed(2),osky]];
   let ok=false;
   for(let i=0;i<SRC.length&&!ok;i++){const k=(S.src+i)%SRC.length;
-    try{const r=await fetch(SRC[k][0]);if(!r.ok)throw 0;const list=SRC[k][1](await r.json()),t=Date.now();for(const o of list){o.t=t;const pv=S.live[o.id],tr=(pv&&pv.tr)||[],l=tr[tr.length-1];if(!l||l[0]!==o.lat0||l[1]!==o.lon0)tr.push([o.lat0,o.lon0,o.alt0]);if(tr.length>150)tr.shift();o.tr=tr;S.live[o.id]=o}S.src=k;ok=true}catch(e){}}
+    try{const r=await fetch(SRC[k][0]);if(!r.ok)throw 0;const list=SRC[k][1](await r.json()),t=Date.now();for(const o of list){o.t=t;const pv=S.live[o.id],tr=(pv&&pv.tr)||[],l=tr[tr.length-1];if(!l||l[0]!==o.lat0||l[1]!==o.lon0)tr.push([o.lat0,o.lon0,o.alt0]);if(tr.length>150)tr.shift();o.tr=tr;o.t0=(pv&&pv.t0)||t;S.live[o.id]=o}S.src=k;ok=true}catch(e){}}
   const was=S.st.feed;S.st.feed=ok?'on':'bad';if(was!==S.st.feed){renderSensors();if(!ok)toast('Flight feed is not answering. Sun, Moon and satellites still work.')}
   pollT=setTimeout(poll,ok?10000:30000);
 }
@@ -748,7 +762,13 @@ document.addEventListener('click',e=>{
   if(b.dataset.view)return setView(b.dataset.view);
   if(b.dataset.range){S.range=+b.dataset.range;save();updRange();if(S.mode==='live')poll();return}
   if(b.dataset.filter){S.filters[b.dataset.filter]^=1;renderFilters();tick();renderList();return}
-  if(a==='path'){S.path=!S.path;if(S.path&&id)S.sel=id;const o=find(id||S.lock||S.sel);if(S.path&&o&&S.mode==='live'&&o.cs&&!S.routes[o.cs])lookupRoute(o);updPath();save();return}
+  if(a==='watch'){toggleWatch(id,b);return}
+  if(a==='alog'){openAreaLog();return}
+  if(a==='csv'){exportCsv();return}
+  if(a==='push'){togglePush();return}
+  if(a==='align'){if(!S.sens)return toast('Go live first, then align');S.alignAt=Date.now()+5000;$('#settings').hidden=true;setView('point');toast('Aim the ring at the real Sun or Moon. Capturing in 5 seconds.');return}
+  if(a==='alignreset'){S.azOff=0;save();updAlign();toast('Compass correction cleared');return}
+  if(a==='path'){S.path=!S.path;if(S.path&&id)S.sel=id;const o=find(id||S.lock||S.sel);if(S.path&&o&&S.mode==='live'&&o.cs&&!S.routes[o.cs])lookupRoute(o);if(S.path&&o&&S.mode==='live')lookupTrack(o);updPath();save();return}
   if(a==='locate'){if(MAP)MAP.setView([S.obs.lat,S.obs.lon],Math.max(MAP.getZoom(),10));return}
   if(a==='gnd'){S.showGnd=!S.showGnd;renderFilters();tick();renderList();return}
   if(a==='detail')openDetail(id);
@@ -786,6 +806,81 @@ const aend=e=>{ap.delete(e.pointerId);if(ap.size<2)az0=null};
 ar.addEventListener('pointerup',aend);ar.addEventListener('pointercancel',aend);
 ar.addEventListener('wheel',e=>{e.preventDefault();setZoom((S.zoom||1)*(e.deltaY>0?0.87:1.15))},{passive:false});
 function pick(H,c,e){const r=c.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;let b=null,bd=44;for(const h of H){const d=Math.hypot(h[0]-x,h[1]-y);if(d<bd){bd=d;b=h[2]}}if(b)openDetail(b)}
+
+/* ---------- watchlist, search, alerts, area log, alignment ---------- */
+let WATCH=new Set();try{WATCH=new Set(JSON.parse(localStorage.getItem('overhead.watch')||'[]'))}catch(e){}
+const kc=o=>o.emg?COL.t4:o.w?COL.amber:COL[o.kind];
+const SAID={},TRK={},TRKT={},HOSTED=location.protocol==='https:'&&/netlify\.app$/.test(location.hostname);
+function announce(o){if(SAID[o.id])return;SAID[o.id]=1;toast(o.emg?'Emergency squawk '+o.sq+': '+o.cs:'On your watchlist: '+o.cs+' is nearby');try{navigator.vibrate&&navigator.vibrate([60,40,60])}catch(e){}}
+function toggleWatch(id,b){
+  if(!id||id[0]!=='a')return toast('Go live to add aircraft to your watchlist');
+  const k=id.slice(1);if(WATCH.has(k))WATCH.delete(k);else WATCH.add(k);
+  try{localStorage.setItem('overhead.watch',JSON.stringify([...WATCH]))}catch(e){}
+  b.setAttribute('aria-pressed',WATCH.has(k));toast(WATCH.has(k)?'Added to your watchlist':'Removed from your watchlist');if(pushOn())syncPush().catch(()=>{});
+}
+async function lookupTrack(o){
+  const k=o.id.slice(1),now=Date.now();if(!/^[0-9a-f]{6}$/.test(k)||now-(TRKT[k]||0)<12e4)return;TRKT[k]=now;
+  try{const r=await fetch('api/track?hex='+k);if(!r.ok)return;const j=await r.json();if(Array.isArray(j.pts))TRK[k]=j.pts}catch(e){}
+}
+function doAlign(){
+  S.alignAt=0;const B=basis(),az=camAz(B),el=camEl(B),c=celestial(Date.now(),S.obs.lat,S.obs.lon);
+  const t=[['Sun',c.sun],['Moon',c.moon]].filter(x=>x[1][1]>3).map(x=>[x[0],wrap(x[1][0]-az),Math.abs(x[1][1]-el)]).sort((p,q)=>Math.abs(p[1])+p[2]-Math.abs(q[1])-q[2])[0];
+  if(!t)return toast('Neither the Sun nor the Moon is up right now');
+  if(Math.abs(t[1])>45||t[2]>25)return toast('Could not align: the ring was not near the '+t[0]);
+  S.azOff=wrap((S.azOff||0)+t[1]);save();updAlign();toast('Compass shifted '+(t[1]>0?'+':'')+Math.round(t[1])+'° using the '+t[0]);
+}
+function updAlign(){const e=$('#az-v');if(e)e.textContent=(S.azOff>0?'+':'')+Math.round(S.azOff||0)+'°'}
+$('#q').addEventListener('input',renderList);
+$('#qform').addEventListener('submit',async e=>{
+  e.preventDefault();const q=$('#q').value.toUpperCase().replace(/\s+/g,'');$('#q').blur();renderList();
+  if(!q||S.mode!=='live'||$('#list .item'))return;
+  toast('Searching all live traffic for '+q);
+  for(const kind of['callsign','registration','hex']){
+    try{const r=await fetch('feed/fi/'+kind+'/'+encodeURIComponent(kind==='hex'?q.toLowerCase():q));if(!r.ok)continue;
+      const o=readsb(await r.json())[0];if(!o)continue;const t=Date.now();o.t=t;o.t0=t;o.tr=[[o.lat0,o.lon0,o.alt0]];S.live[o.id]=o;
+      $('#q').value='';tick();setView('map');if(MAP)MAP.setView([o.lat0,o.lon0],9);openDetail(o.id);return}catch(err){}
+  }
+  toast('No live aircraft found for '+q);
+});
+async function openAreaLog(){
+  S.detail=null;const P=$('#detail-p'),head='<div class="sheet-h"><div><h1>Area log</h1><p>Logged around the clock</p></div><button class="icon-btn" data-act="close" aria-label="Close">✕</button></div>';
+  P.innerHTML=head+'<p class="note">Loading the log.</p>';$('#detail').hidden=false;
+  let j=null;try{const r=await fetch('api/log');if(r.ok)j=await r.json()}catch(e){}
+  if(!j||!j.since){P.innerHTML=head+'<div class="empty">'+(j?'The logger has not finished its first run yet. Check back in a few minutes.':'The area log is only available in the hosted app.')+'</div>';return}
+  const dt=t=>new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric'}),hrs=j.hours||[],mx=Math.max(1,...hrs),
+    row=r=>'<div class="item"><i class="dot" style="background:var(--k-plane)"></i><span class="mid"><b>'+esc(r.reg||r.hex.toUpperCase())+'</b><span>'+esc((TYPES[r.type]||[])[0]||r.type||'Type not reported')+'</span></span><span class="end"><b>'+r.visits+(r.visits===1?' visit':' visits')+'</b>last '+dt(r.last)+'</span></div>',
+    sec=(t,a)=>a&&a.length?'<h2>'+t+'</h2><div class="list">'+a.map(row).join('')+'</div>':'';
+  P.innerHTML=head+'<div class="score"><div><span class="lbl">Aircraft</span><b>'+num(j.known)+'</b></div><div><span class="lbl">Visits</span><b>'+num(j.visits)+'</b></div><div><span class="lbl">Since</span><b style="font-size:16px">'+dt(j.since)+'</b></div></div>'
+    +(hrs.some(v=>v)?'<h2>Busiest hours</h2><div class="bars" role="img" aria-label="New visits by hour of day">'+hrs.map((v,i)=>'<i style="height:'+Math.round(v/mx*100)+'%" title="'+i+':00, '+v+' visits"></i>').join('')+'</div><div class="axis"><span>12 AM</span><span>6 AM</span><span>Noon</span><span>6 PM</span><span>11 PM</span></div>':'')
+    +sec('Most frequent visitors',j.top)+sec('Newest first-timers',j.fresh)+sec('Military',j.mil)
+    +(j.types&&j.types.length?'<h2>Most common types</h2><dl class="spec">'+j.types.map(t=>'<dt>'+esc((TYPES[t[0]]||[])[0]||t[0])+'</dt><dd>'+num(t[1])+(t[1]===1?' visit':' visits')+'</dd>').join('')+'</dl>':'')
+    +'<div class="links"><a href="api/export">Download full log (CSV)</a></div><p class="note">Covers a fixed circle around central Portland. Counting started '+dt(j.since)+'.</p>';
+}
+function exportCsv(){
+  if(!LOG.length)return toast('Your logbook is empty');
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"',csv=['Date (UTC),Callsign,Aircraft,Kind,Type code,Rarity,Points,Altitude ft,Distance mi'].concat(LOG.map(x=>[new Date(x.ts).toISOString(),x.cs,x.name,x.kind,x.type,TIER[x.tier],x.pts,x.ft,(x.mi||0).toFixed(1)].map(q).join(','))).join('\n');
+  try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='overhead-logbook.csv';document.body.appendChild(a);a.click();a.remove();toast('Logbook exported')}catch(e){toast('Export is not available here')}
+}
+const pushOn=()=>{try{return localStorage.getItem('overhead.push')==='1'}catch(e){return false}};
+const b64=s=>Uint8Array.from(atob((s+'='.repeat((4-s.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
+async function syncPush(off){
+  const reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();if(!sub)return false;
+  const r=await fetch('api/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sub:sub.toJSON(),off:!!off,watch:[...WATCH],mil:true,rare:true,emg:true})});
+  if(off)await sub.unsubscribe();return r.ok;
+}
+async function togglePush(){
+  if(!HOSTED||!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window))return toast('Alerts are not available in this browser');
+  try{
+    if(pushOn()){await syncPush(true);localStorage.setItem('overhead.push','0');updPush();return toast('Alerts turned off')}
+    if(await Notification.requestPermission()!=='granted')return toast('Notifications are blocked for this site in your browser settings');
+    const k=await(await fetch('api/push-key')).json(),reg=await navigator.serviceWorker.ready;
+    if(!await reg.pushManager.getSubscription())await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64(k.key)});
+    if(!await syncPush())throw 0;localStorage.setItem('overhead.push','1');updPush();toast('Alerts are on');
+  }catch(e){toast('Could not turn on alerts. Try again in a minute.')}
+}
+function updPush(){const b=$('#push-btn');if(b)b.textContent=pushOn()?'Alerts are on. Tap to turn off':'Turn on alerts'}
+try{if(HOSTED&&'serviceWorker' in navigator){navigator.serviceWorker.register('sw.js');const l=document.createElement('link');l.rel='manifest';l.href='manifest.webmanifest';document.head.appendChild(l)}}catch(e){}
+updAlign();updPush();
 
 /* ---------- boot ---------- */
 $('#fov').value=S.fov;$('#fov-v').textContent=S.fov+'°';
