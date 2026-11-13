@@ -87,7 +87,7 @@ export default async (req) => {
     if (body.off) delete ps.subs[id];
     else {
       if (!ps.subs[id] && Object.keys(ps.subs).length >= 200) return json({ error: "alert list is full" }, 429);
-      ps.subs[id] = { sub: { endpoint: sub.endpoint, keys: sub.keys }, watch: (Array.isArray(body.watch) ? body.watch : []).slice(0, 200).map(String), mil: !!body.mil, rare: !!body.rare, emg: !!body.emg, fire: body.fire !== false, t: Date.now() };
+      ps.subs[id] = { sub: { endpoint: sub.endpoint, keys: sub.keys }, watch: (Array.isArray(body.watch) ? body.watch : []).slice(0, 200).map(String), mil: !!body.mil, rare: !!body.rare, emg: !!body.emg, fire: body.fire !== false, sats: (Array.isArray(body.sats) ? body.sats : []).slice(0, 25).map(Number).filter((n) => n > 0), t: Date.now() };
     }
     await strong.setJSON("push", ps);
     return json({ ok: true });
