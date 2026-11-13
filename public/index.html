@@ -190,6 +190,9 @@ input[type=range]{width:100%;accent-color:var(--amber)}
 #toast{position:absolute;left:var(--gl);right:var(--gr);top:64px;z-index:9;background:var(--ink);color:#000;border-radius:0;padding:10px 12px;font-weight:700;text-align:center}
 #toast.tap{cursor:pointer;box-shadow:0 0 0 2px var(--gold)}
 #toast .go{display:block;font-size:12px;font-weight:400;margin-top:2px}
+.sharecard{display:block;width:100%;max-width:420px;margin:4px auto 14px;border:1px solid var(--line-2);background:#000}
+.item .rm{margin-left:8px;flex:none}
+button.item{width:100%;text-align:left;font:inherit;color:inherit}
 .icon-btn{position:relative}
 .dotn{position:absolute;top:6px;right:6px;width:9px;height:9px;border-radius:50%;background:var(--t4)}
 </style>
@@ -284,6 +287,8 @@ input[type=range]{width:100%;accent-color:var(--amber)}
     <h2>Alerts</h2>
     <p class="note" style="margin-top:0">Get a notification when a watchlist, rare, military or emergency aircraft enters the logged area, even with the app closed.</p>
     <div class="row"><button class="btn" data-act="push" id="push-btn">Turn on alerts</button></div>
+    <p class="note">What's circling? Get an alert when a helicopter or plane circles near you for several minutes. It uses your location rounded to about half a mile.</p>
+    <div class="row"><button class="btn sm" data-act="circ" id="circ-btn">Circling alerts: 3 mi</button><button class="btn sm" data-act="quiet" id="quiet-btn">Quiet 10 PM to 7 AM: on</button></div>
     <h2>Compass alignment</h2>
     <p class="note" style="margin-top:0">If labels sit to one side of the real aircraft, aim the ring at the Sun or Moon to correct it, or open any aircraft you can see and tap Align on it. Never look straight at the Sun. Current correction: <span id="az-v">none</span></p>
     <div class="row"><button class="btn" data-act="align">Align in 5 seconds</button><button class="btn sm" data-act="alignreset">Reset</button></div>
@@ -578,6 +583,7 @@ const typeName=o=>(TYPES[o.type]||[])[0]||o.name||o.desc||o.type||KIND[o.kind];
 // callsign, so those keys still count as caught.
 const legacyKey=o=>o.kind+':'+(o.reg||o.cs||o.id);
 const keyOf=o=>(o.kind==='plane'||o.kind==='heli')&&/^a[0-9a-f]{6}$/.test(o.id)?'ac:'+o.id.slice(1):legacyKey(o);
+const logEntry=o=>{const k=keyOf(o),l=legacyKey(o),h=o.id&&o.id[0]==='a'?o.id.slice(1):'';return LOG.find(x=>x.key===k||x.key===l||(h&&x.hex===h))};
 const logged=o=>{const k=keyOf(o),l=legacyKey(o),h=o.id&&o.id[0]==='a'?o.id.slice(1):'';return LOG.some(x=>x.key===k||x.key===l||(h&&x.hex===h))};
 // Satellites: is it in sunlight, and is it dark enough here to see it?
 const SATGRP={station:'Space station',visual:'Satellite',gps:'GPS satellite',starlink:'Starlink train',decay:'Reentering soon'};
@@ -898,7 +904,7 @@ function updRare(){
   if(!r){el.hidden=true;return}
   if(el.dataset.id!==r.id||el.hidden){el.dataset.id=r.id;el.innerHTML='<b>'+TIER[r.tier]+' overhead</b>'+esc(typeName(r))+' · Find it';el.hidden=false}
 }
-let toastT;function toast(m,id){const t=$('#toast');$('#toast-t').textContent=m;t.dataset.id=id||'';t.classList.toggle('tap',!!id);$('#toast-go').hidden=!id;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,id?7000:3800)}
+let toastT;function toast(m,id,act){const t=$('#toast');$('#toast-t').textContent=m;t.dataset.id=id||'';t.dataset.act=act||'';$('#toast-go').textContent=act==='share'?'Tap to make a share card':'Tap to see it on the map';t.classList.toggle('tap',!!id);$('#toast-go').hidden=!id;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,id?7000:3800)}
 function setView(v){S.view=v;for(const n of['point','radar','map','list','hangar'])$('#v-'+n).hidden=n!==v;$$('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.view===v));if(v==='map')openMap();if(v==='list')renderList();if(v==='hangar'){renderHangar();clubSync(true)}}
 function renderFilters(){$('#mfilters').innerHTML=$('#filters').innerHTML=Object.keys(KIND).map(k=>'<button data-filter="'+k+'" aria-pressed="'+!!S.filters[k]+'"><i class="dot" style="background:var(--k-'+k+')"></i>'+KIND[k]+(k==='sky'?'':'s')+'</button>').join('')+'<button data-act="gnd" aria-pressed="'+!!S.showGnd+'">Parked aircraft</button><span class="fsep" aria-hidden="true"></span>'+Object.keys(CATN).map(k=>'<button data-cat="'+k+'" aria-pressed="'+!!S.cats[k]+'">'+CATN[k]+'</button>').join('')+filterNote()}
 function filterNote(){const off=Object.keys(KIND).filter(k=>!S.filters[k]).map(k=>KIND[k]+(k==='sky'?'':'s')).concat(Object.keys(CATN).filter(k=>!S.cats[k]).map(k=>CATN[k]));return off.length?'<p class="fnote">Hiding '+esc(off.join(', '))+' <button data-act="fall">Show all</button></p>':''}
@@ -910,11 +916,11 @@ function renderList(){
 function renderHangar(){
   const pts=LOG.reduce((s,x)=>s+x.pts,0),lvl=Math.floor(Math.sqrt(pts/50))+1,lo=50*(lvl-1)**2,hi=50*lvl**2,types=new Set(LOG.filter(x=>x.type&&TYPES[x.type]).map(x=>x.type)),nT=Object.keys(TYPES).length;
   const got=BADGES.filter(b=>b[3](LOG)).length;
-  $('#v-hangar').innerHTML='<div class="row" style="margin-bottom:16px"><button class="btn" data-act="alog">Area log, 24/7</button><button class="btn" data-act="gps">GPS above you</button><button class="btn" data-act="csv">Export logbook</button></div><div id="h-sky">'+skyHtml()+'</div>'+clubHtml()+watchHtml()+'<h2>Spotter rank</h2><div class="score"><div><span class="lbl">Level</span><b>'+lvl+'</b></div><div><span class="lbl">Points</span><b>'+num(pts)+'</b></div><div><span class="lbl">Catches</span><b>'+LOG.length+'</b></div></div>'
+  $('#v-hangar').innerHTML='<div class="row" style="margin-bottom:16px"><button class="btn" data-act="pickform">Pick up a flight</button><button class="btn" data-act="alog">Area log, 24/7</button><button class="btn" data-act="gps">GPS above you</button><button class="btn" data-act="csv">Export logbook</button></div><div id="h-pick">'+pickHtml()+'</div><div id="h-sky">'+skyHtml()+'</div>'+clubHtml()+watchHtml()+'<h2>Spotter rank</h2><div class="score"><div><span class="lbl">Level</span><b>'+lvl+'</b></div><div><span class="lbl">Points</span><b>'+num(pts)+'</b></div><div><span class="lbl">Catches</span><b>'+LOG.length+'</b></div></div>'
    +'<div class="bar" aria-label="Progress to next level"><i style="width:'+Math.round((pts-lo)/(hi-lo)*100)+'%"></i></div><p class="note">'+num(hi-pts)+' points to level '+(lvl+1)+'. Rare catches are worth '+PTS[3]+', Epic '+PTS[4]+'.</p>'
    +'<h2>Badges · '+got+' of '+BADGES.length+'</h2><div class="badges">'+BADGES.map(b=>{const on=b[3](LOG);return'<div class="badge'+(on?' on':'')+'"><em>'+(on?'Earned':'Locked')+'</em><b>'+b[1]+'</b><span>'+b[2]+'</span></div>'}).join('')+'</div>'
    +'<h2>Type guide · '+types.size+' of '+nT+'</h2><div class="bar"><i style="width:'+Math.round(types.size/nT*100)+'%"></i></div>'
-   +'<h2>Logbook</h2>'+(LOG.length?'<div class="list">'+[...LOG].reverse().slice(0,40).map(x=>'<div class="item"><i class="dot" style="background:var(--k-'+x.kind+')"></i><span class="mid"><b>'+esc(x.cs)+'</b><span>'+esc(x.name)+'</span></span><span class="end"><b class="t'+x.tier+'">+'+x.pts+'</b>'+new Date(x.ts).toLocaleDateString('en-US',{month:'short',day:'numeric'})+'</span></div>').join('')+'</div><div class="row" style="margin-top:14px"><button class="btn" data-act="reset" id="reset-btn">Clear logbook</button></div>'
+   +'<h2>Logbook</h2>'+(LOG.length?'<div class="list">'+[...LOG].reverse().slice(0,40).map(x=>'<button class="item" data-act="share" data-key="'+esc(x.key)+'" aria-label="Share card for '+esc(x.cs)+'"><i class="dot" style="background:var(--k-'+x.kind+')"></i><span class="mid"><b>'+esc(x.cs)+'</b><span>'+esc(x.name)+'</span></span><span class="end"><b class="t'+x.tier+'">+'+x.pts+'</b>'+new Date(x.ts).toLocaleDateString('en-US',{month:'short',day:'numeric'})+'</span></button>').join('')+'</div><p class="note">Tap a catch to make a share card.</p><div class="row" style="margin-top:14px"><button class="btn" data-act="reset" id="reset-btn">Clear logbook</button></div>'
      :'<div class="empty">No catches yet. On the Point tab, hold the ring on an aircraft until it locks, then tap Log it.</div>');
 }
 // The moment a catch lands: points in the rarity's color, then any badge or level it unlocked.
@@ -928,11 +934,14 @@ function catchFlash(o,badges,level){
 }
 function logCatch(id){
   const o=find(id);if(!o||logged(o))return;
+  const shot=grabShot();
   const before=BADGES.filter(b=>b[3](LOG)).map(b=>b[0]),T=TYPES[o.type]||[];
   LOG.push({key:keyOf(o),hex:o.id[0]==='a'?o.id.slice(1):'',reg:o.reg||(REG[o.id.slice(1)]||{}).registration||'',route:(S.routes[o.cs]&&S.routes[o.cs].from)?S.routes[o.cs].from+' → '+(S.routes[o.cs].to||'?'):'',owner:(REG[o.id.slice(1)]||{}).registered_owner||o.own||'',cs:o.cs,name:typeName(o),kind:o.kind,type:o.type||'',cls:T[10]||'',mil:o.mil?1:0,tier:o.tier,pts:PTS[o.tier],ts:Date.now(),ft:Math.round(o.alt/0.3048)||0,mi:isFinite(o.dist)?o.dist/1609.34:0});save();
   const nb=BADGES.filter(b=>b[3](LOG)&&!before.includes(b[0])).map(b=>b[1]);
   const lv=p=>Math.floor(Math.sqrt(p/50))+1,tot=LOG.reduce((a,x)=>a+(x.pts||0),0),up=lv(tot)>lv(tot-PTS[o.tier])?lv(tot):0;
   catchFlash(o,nb,up);
+  const key=LOG[LOG.length-1].key;if(shot){SHOTS[key]=shot;const ks=Object.keys(SHOTS);if(ks.length>8)delete SHOTS[ks[0]]}
+  setTimeout(()=>toast('Logged '+o.cs,key,'share'),nb.length||up?2400:1500);
   try{navigator.vibrate&&navigator.vibrate(o.tier>=4?[40,50,40,50,140]:o.tier>=3?[30,50,90]:nb.length||up?[25,40,60]:[35])}catch(e){}
   if(cardId===o.id)updLogBtn(o);if(S.detail===id)openDetail(id);
   clubSync();
@@ -943,7 +952,7 @@ function openDetail(id){
   h+='<div id="d-route">'+routeHtml(o)+'</div><dl class="stats" id="d-live"></dl>';
   // Peek card: the essentials and Log it first; everything else opens with More details or a swipe up.
   h+='<button class="btn go logbig" data-act="log" data-id="'+esc(o.id)+'"'+(done?' disabled':'')+'>'+(done?'In your logbook':'Log it  +'+PTS[o.tier])+'</button>'
-    +'<div class="row" style="margin:8px 0 0"><button class="btn" data-act="guide" data-id="'+esc(o.id)+'">Guide me</button>'+(air?'<button class="btn" data-act="path" data-id="'+esc(o.id)+'" aria-pressed="'+!!S.path+'">Flight path</button><button class="btn" data-act="watch" data-id="'+esc(o.id)+'" aria-pressed="'+(o.id[0]==='a'&&WATCH.has(o.id.slice(1)))+'">Watch</button>':o.kind==='sat'&&o.norad?'<button class="btn" data-act="swatch" data-norad="'+o.norad+'" aria-pressed="'+SWATCH.has(o.norad)+'">Watch passes</button>':'')+'</div>'
+    +'<div class="row" style="margin:8px 0 0">'+(done&&logEntry(o)?'<button class="btn" data-act="share" data-key="'+esc(logEntry(o).key)+'">Share card</button>':'')+'<button class="btn" data-act="guide" data-id="'+esc(o.id)+'">Guide me</button>'+(air?'<button class="btn" data-act="path" data-id="'+esc(o.id)+'" aria-pressed="'+!!S.path+'">Flight path</button><button class="btn" data-act="watch" data-id="'+esc(o.id)+'" aria-pressed="'+(o.id[0]==='a'&&WATCH.has(o.id.slice(1)))+'">Watch</button>':o.kind==='sat'&&o.norad?'<button class="btn" data-act="swatch" data-norad="'+o.norad+'" aria-pressed="'+SWATCH.has(o.norad)+'">Watch passes</button>':'')+'</div>'
     +'<button class="dmore-btn" data-act="dmore">More details ↑</button><div class="dmore">';
   if(air)h+='<div id="d-air">'+airHtml(o)+'</div>';
   if(T){h+='<h2>About the '+esc(T[0])+'</h2><dl class="spec"><dt>Role</dt><dd>'+T[2]+'</dd><dt>Built by</dt><dd>'+T[1]+'</dd><dt>Power</dt><dd>'+T[3]+'</dd><dt>Carries</dt><dd>'+T[4]+'</dd>'+(T[5]?'<dt>Range</dt><dd>'+num(T[5]*1.1508)+' mi</dd>':'')+'<dt>Flying since</dt><dd>'+T[7]+'</dd><dt>'+(T[10]==='heli'?'Rotor':'Wingspan')+'</dt><dd>'+T[6]+' ft</dd></dl>'
@@ -1100,7 +1109,7 @@ async function goLive(){
   try{pos=await new Promise((res,rej)=>navigator.geolocation?navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:12000}):rej(new Error('no gps')))}
   catch(e){S.st.gps='bad';renderSensors();$('#settings').hidden=false;toast('Location is off. Allow location for this site in your browser, then tap Start sensors.');return}
   const setPos=p=>{S.obs={lat:p.coords.latitude,lon:p.coords.longitude,alt:p.coords.altitude||30}};
-  setPos(pos);if(MAP)MAP.setView([S.obs.lat,S.obs.lon]);S.mode='live';S.st.gps='on';S.lock=S.sel=null;S.live={};
+  setPos(pos);if(MAP)MAP.setView([S.obs.lat,S.obs.lon]);S.mode='live';S.st.gps='on';S.lock=S.sel=null;S.live={};if(pushOn()&&CIRC.r&&!S.circSync){S.circSync=1;setTimeout(()=>syncPush().catch(()=>{}),3000)}
   try{navigator.geolocation.watchPosition(setPos,()=>{},{enableHighAccuracy:true})}catch(e){}
   window.addEventListener('deviceorientationabsolute',onOri);window.addEventListener('deviceorientation',onOri);
   setTimeout(()=>{if(!S.sens){S.st.compass='bad';renderSensors()}},3000);
@@ -1188,6 +1197,15 @@ document.addEventListener('click',e=>{
   if(a==='aclear'){ALERTS=[];saveAlerts();updBell();openAlerts();return}
   if(a==='club-start'){clubForm('create');return}
   if(a==='club-invite'){clubInvite();return}
+  if(a==='club-rm'){if(!b.dataset.sure){b.dataset.sure=1;b.textContent='Tap to confirm';return}b.disabled=true;clubApi('remove',{code:CLUB.code,pid:CLUB.pid,token:CLUB.token,target:b.dataset.pid}).then(j=>{BOARD=j.players;CLUBADMIN=!!j.admin;renderHangar();toast('Player removed')}).catch(e=>{toast(e.message);b.disabled=false});return}
+  if(a==='share'){openShare(b.dataset.key);return}
+  if(a==='pickform'){pickForm();return}
+  if(a==='pickstop'){PICK=null;savePick();renderHangar();if(pushOn())syncPush().catch(()=>{});toast('Pick-up stopped');return}
+  if(a==='pickmap'){if(PICK&&PICK.hex)findWatched(PICK.hex);else toast('Not broadcasting yet');return}
+  if(a==='sharego'){shareGo();return}
+  if(a==='sharesave'){shareSave();return}
+  if(a==='circ'){CIRC.r=[0,1,3,5][([0,1,3,5].indexOf(CIRC.r)+1)%4];saveCirc();updCirc();if(pushOn())syncPush().catch(()=>{});return}
+  if(a==='quiet'){CIRC.q=!CIRC.q;saveCirc();updCirc();if(pushOn())syncPush().catch(()=>{});return}
   if(a==='club-name'){clubForm('rename');return}
   if(a==='club-leave'){if(b.dataset.sure)clubLeave();else{b.dataset.sure=1;b.textContent='Tap again to leave'}return}
   if(a==='wfind'){findWatched(b.dataset.hex);return}
@@ -1262,7 +1280,7 @@ async function findWatched(k){
   setView('map');if(MAP&&o.lat!=null)MAP.setView([o.lat,o.lon],Math.max(MAP.getZoom(),9));openDetail(o.id);
 }
 /* ---------- friends club leaderboard ---------- */
-let CLUB=null,BOARD=null,clubT=0;try{CLUB=JSON.parse(localStorage.getItem('overhead.club')||'null')}catch(e){}
+let CLUB=null,BOARD=null,clubT=0,CLUBADMIN=false;try{CLUB=JSON.parse(localStorage.getItem('overhead.club')||'null')}catch(e){}
 const saveClub=()=>{try{CLUB?localStorage.setItem('overhead.club',JSON.stringify(CLUB)):localStorage.removeItem('overhead.club')}catch(e){}};
 async function clubApi(op,body){
   const r=await fetch('api/club/'+op,body?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}:undefined);
@@ -1273,14 +1291,14 @@ function clubHtml(){
   if(!HOSTED&&!/^localhost/.test(location.host))return'';
   if(!CLUB)return'<h2>Club leaderboard</h2><p class="note" style="margin-top:0">Compete with friends on points and badges. Pick a name and you\'re on the board.</p><div class="row" style="margin-bottom:6px"><button class="btn go" data-act="club-join">Join the leaderboard</button></div>';
   const rows=(BOARD||[]).map((p,i)=>{const me=p.pid===CLUB.pid,b=p.best;
-    return'<div class="item'+(me?' me':'')+'"><span class="rank">'+(i+1)+'</span><span class="mid"><b>'+esc(p.name)+(me?' (you)':'')+'</b><span>Level '+p.lvl+' · '+p.n+(p.n===1?' catch':' catches')+' · '+p.badges+(p.badges===1?' badge':' badges')+(b?' · Best: '+esc(TIER[b.tier])+' '+esc(b.name||b.cs):'')+'</span></span><span class="end"><b>'+num(p.pts)+'</b>points</span></div>'}).join('');
+    return'<div class="item'+(me?' me':'')+'"><span class="rank">'+(i+1)+'</span><span class="mid"><b>'+esc(p.name)+(me?' (you)':'')+'</b><span>Level '+p.lvl+' · '+p.n+(p.n===1?' catch':' catches')+' · '+p.badges+(p.badges===1?' badge':' badges')+(b?' · Best: '+esc(TIER[b.tier])+' '+esc(b.name||b.cs):'')+'</span></span><span class="end"><b>'+num(p.pts)+'</b>points</span>'+(CLUBADMIN&&!me?'<button class="btn sm rm" data-act="club-rm" data-pid="'+esc(p.pid)+'" aria-label="Remove '+esc(p.name)+'">Remove</button>':'')+'</div>'}).join('');
   return'<h2>Club leaderboard</h2><div class="list" id="club-board">'+(BOARD?rows||'<div class="empty">Nobody has logged a catch yet.</div>':'<p class="note">Loading the leaderboard.</p>')+'</div>'
     +'<div class="row" style="margin:10px 0 6px"><button class="btn" data-act="club-invite">Invite friends</button><button class="btn sm" data-act="club-name">Change name</button><button class="btn sm" data-act="club-leave">Leave</button></div>';
 }
 function clubPayload(){return{code:CLUB.code,pid:CLUB.pid,token:CLUB.token,name:CLUB.name,badges:BADGES.filter(b=>b[3](LOG)).length,log:LOG.map(x=>({k:x.key,tier:x.tier,cs:x.cs,name:x.name,t:x.ts}))}}
 async function clubSync(now){
   if(!CLUB)return;clearTimeout(clubT);
-  const go=async()=>{try{const j=await clubApi('sync',clubPayload());if(j.code&&j.code!==CLUB.code){CLUB.code=j.code;saveClub()}BOARD=j.players;if(S.view==='hangar')renderHangar()}catch(e){if(/not found|not valid/.test(e.message)){CLUB=null;BOARD=null;saveClub();if(S.view==='hangar')renderHangar()}toast(e.message)}};
+  const go=async()=>{try{const j=await clubApi('sync',clubPayload());if(j.code&&j.code!==CLUB.code){CLUB.code=j.code;saveClub()}BOARD=j.players;CLUBADMIN=!!j.admin;if(S.view==='hangar')renderHangar()}catch(e){if(/not found|not valid/.test(e.message)){CLUB=null;BOARD=null;saveClub();if(S.view==='hangar')renderHangar()}toast(e.message)}};
   if(now)return go();clubT=setTimeout(go,1500);
 }
 function clubForm(kind){
@@ -1356,7 +1374,7 @@ function openWhenLive(hex,tries){
   if(S.mode==='live')return findWatched(hex);
   if((tries||0)<40)setTimeout(()=>openWhenLive(hex,(tries||0)+1),500);else toast('Turn on location to see that aircraft');
 }
-$('#toast').addEventListener('click',()=>{const t=$('#toast'),id=t.dataset.id;if(!id)return;t.hidden=true;findWatched(id.slice(1))});
+$('#toast').addEventListener('click',()=>{const t=$('#toast'),id=t.dataset.id;if(!id)return;t.hidden=true;if(t.dataset.act==='share')openShare(id);else findWatched(id.slice(1))});
 try{if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{const d=e.data||{};if(d.alert&&d.alert.hex)addAlert('push',d.alert.cs,d.alert.hex,'');if(d.open)openWhenLive(d.open)})}catch(e){}
 function toggleWatch(id,b){
   if(!id||id[0]!=='a')return toast('Only aircraft can go on your watchlist');
@@ -1460,6 +1478,112 @@ async function openTail(k){
     +'<div id="d-air">'+airHtml(pseudo)+'</div>';
   $('#detail').hidden=false;
 }
+/* ---------- pick-up mode ---------- */
+// Follow one flight to an airport: how far out, a rough ETA, and alerts on approach, after landing and at the gate.
+const PHASE=['Waiting for it to appear','En route','On approach','Landed','At the gate'];
+let PICK=null;try{PICK=JSON.parse(localStorage.getItem('overhead.pick')||'null');if(PICK&&Date.now()-PICK.t>864e5)PICK=null}catch(e){}
+function savePick(){try{localStorage.setItem('overhead.pick',JSON.stringify(PICK))}catch(e){}}
+function pickPhase(a,apt){
+  if(!a||a.lat==null)return null;const d=nmTo(a.lat,a.lon,apt.lat,apt.lon),gnd=a.alt_baro==='ground',alt=gnd?0:(+a.alt_baro||0),gs=+a.gs||0;
+  if((gnd||alt<150)&&d<4)return gs<4?4:3;
+  if(d<35&&alt<12000)return 2;return 1;
+}
+function nmTo(la1,lo1,la2,lo2){const r=Math.PI/180,x=Math.sin((la2-la1)*r/2)**2+Math.cos(la1*r)*Math.cos(la2*r)*Math.sin((lo2-lo1)*r/2)**2;return 6880.13*Math.asin(Math.min(1,Math.sqrt(x)))}
+function pickForm(){
+  S.detail=null;const P=$('#detail-p');P.classList.remove('peek');
+  P.innerHTML='<div class="sheet-h"><div><h1>Pick up a flight</h1><p>Follow a friend\'s flight in. You get an alert on approach, after landing and at the gate.</p></div><button class="icon-btn" data-act="close" aria-label="Close">✕</button></div>'
+    +'<form id="pick-form"><label class="field"><span class="lbl">Flight number, as on the ticket</span><input id="pk-f" maxlength="10" placeholder="AS 1234" autocomplete="off" autocapitalize="characters" spellcheck="false" required></label>'
+    +'<label class="field"><span class="lbl">Arriving at (airport code)</span><input id="pk-a" maxlength="4" value="PDX" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>'
+    +'<div class="row"><button class="btn go" type="submit">Start pick-up</button></div></form><p class="note">Leave the airport blank to use the flight\'s published destination. Alerts need the bell turned on.</p>';
+  $('#detail').hidden=false;setTimeout(()=>{try{$('#pk-f').focus()}catch(e){}},50);
+}
+document.addEventListener('submit',async e=>{
+  if(e.target.id!=='pick-form')return;e.preventDefault();
+  const btn=e.target.querySelector('button');btn.disabled=true;
+  const raw=($('#pk-f').value||'').toUpperCase().replace(/\s+/g,''),cs=ticketCs(raw)||raw;let code=($('#pk-a').value||'').toUpperCase().trim();
+  if(!/^[A-Z0-9]{3,8}$/.test(cs)){toast('Enter a flight number like AS 1234');btn.disabled=false;return}
+  await loadPlaces();let apt=null;
+  if(!code){try{const j=await(await fetch('https://api.adsbdb.com/v0/callsign/'+cs)).json(),f=j&&j.response&&j.response.flightroute;if(f&&f.destination){code=f.destination.iata_code||f.destination.icao_code;apt={code,lat:f.destination.latitude,lon:f.destination.longitude,name:f.destination.municipality||f.destination.name}}}catch(err){}}
+  if(!apt&&code){const c=code.length===4&&code[0]==='K'?code.slice(1):code,pl=(PLACES||[]).find(x=>x[0]===code||x[0]===c);if(pl)apt={code:pl[0],lat:pl[3],lon:pl[4],name:pl[5]||pl[1]}}
+  if(!apt){toast(code?'Airport '+code+' was not found. Try its 3-letter code.':'No published destination for '+cs+'. Enter the airport code.');btn.disabled=false;return}
+  PICK={cs,code:apt.code,lat:apt.lat,lon:apt.lon,name:apt.name,t:Date.now(),ph:0,hex:'',last:null};savePick();
+  $('#detail').hidden=true;setView('hangar');toast('Following '+cs+' to '+apt.code);await pickPoll();if(pushOn())syncPush().catch(()=>{});
+});
+async function pickPoll(){
+  if(!PICK)return;if(Date.now()-PICK.t>864e5){PICK=null;savePick();return}
+  let a=null;try{const r=await fetch('feed/fi/callsign/'+encodeURIComponent(PICK.cs));if(r.ok){const j=await r.json();a=(j.ac||j.aircraft||[]).find(x=>x.lat!=null)||null}}catch(e){return}
+  if(!PICK)return;let ph=pickPhase(a,PICK);
+  if(a){PICK.hex=a.hex;PICK.last={lat:a.lat,lon:a.lon,alt:a.alt_baro==='ground'?0:(+a.alt_baro||0),gs:+a.gs||0,t:Date.now()}}
+  else if(PICK.ph>=3)ph=4; // transponder off after landing: parked
+  if(ph&&ph>PICK.ph){const was=PICK.ph;PICK.ph=ph;if(was>0||ph>=2){const m=PICK.cs+' '+(ph===2?'is on approach to '+PICK.code:ph===3?'landed at '+PICK.code:ph===4?'is at the gate at '+PICK.code:'is in the air');toast(m);addAlert('push',PICK.cs,PICK.hex,'');try{navigator.vibrate&&navigator.vibrate([60,60,120])}catch(e){}}}
+  savePick();const el=$('#h-pick');if(el&&S.view==='hangar')el.innerHTML=pickHtml();
+}
+function pickHtml(){
+  if(!PICK)return'';const L=PICK.last,d=L?nmTo(L.lat,L.lon,PICK.lat,PICK.lon):null,mi=d!=null?d*1.1508:null;
+  let eta='';if(L&&PICK.ph<3&&L.gs>60){const min=Math.round(d/L.gs*60+(PICK.ph===1?7:3));eta='About '+min+' min · lands around '+new Date(Date.now()+min*6e4).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}
+  const line=PICK.ph===0?'Not broadcasting yet. It appears once the plane is moving.':PICK.ph<3?(mi!=null?(mi<10?mi.toFixed(1):Math.round(mi))+' mi out · '+num(L.alt)+' ft':''):PICK.ph===3?'Taxiing to the gate':'Parked. Head to arrivals.';
+  return'<h2>Pick-up</h2><div class="list"><div class="item"><i class="dot" style="background:'+(PICK.ph>=3?'var(--t2)':PICK.ph===2?'var(--amber)':'var(--k-plane)')+'"></i><span class="mid"><b>'+esc(PICK.cs)+' → '+esc(PICK.code)+'</b><span>'+esc(PHASE[PICK.ph])+(line?' · '+esc(line):'')+'</span>'+(eta?'<span>'+esc(eta)+'</span>':'')+'</span></div></div>'
+    +'<div class="row" style="margin:10px 0 6px"><button class="btn" data-act="pickmap">Show on map</button><button class="btn sm" data-act="pickstop">Stop</button></div>';
+}
+setInterval(()=>{if(PICK&&!document.hidden)pickPoll()},20000);setTimeout(pickPoll,2500);
+/* ---------- share cards ---------- */
+// A photo is taken from the camera the moment you log, kept in memory for the last few catches.
+const SHOTS={};
+function grabShot(){try{const v=$('#cam');if(!S.cam||!v||v.hidden||v.readyState<2||!v.videoWidth)return null;const w=Math.min(1440,v.videoWidth),h=Math.round(v.videoHeight*w/v.videoWidth),c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(v,0,0,w,h);return c}catch(e){return null}}
+async function makeCard(x){
+  try{await Promise.all(['300 140px "Space Grotesk"','500 28px "JetBrains Mono"','400 40px Inter'].map(f=>document.fonts.load(f)))}catch(e){}
+  const W=1080,H=1350,c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d'),cs=getComputedStyle(document.documentElement);
+  const tc=cs.getPropertyValue('--t'+x.tier).trim()||'#f4b92e',amber='#f4b92e',mono=(n,w)=>(w||500)+' '+n+'px "JetBrains Mono", ui-monospace, monospace';
+  const sp=v=>{try{g.letterSpacing=v}catch(e){}};
+  g.fillStyle='#000';g.fillRect(0,0,W,H);
+  const shot=SHOTS[x.key];
+  if(shot){const k=Math.max(W/shot.width,H/shot.height),w=shot.width*k,h=shot.height*k;g.drawImage(shot,(W-w)/2,(H-h)/2,w,h);
+    let gr=g.createLinearGradient(0,H*.38,0,H);gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(.55,'rgba(0,0,0,.78)');gr.addColorStop(1,'rgba(0,0,0,.95)');g.fillStyle=gr;g.fillRect(0,0,W,H);
+    gr=g.createLinearGradient(0,0,0,240);gr.addColorStop(0,'rgba(0,0,0,.7)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,W,240)}
+  else{g.strokeStyle='rgba(255,255,255,.06)';g.lineWidth=1;for(let i=0;i<=W;i+=90){g.beginPath();g.moveTo(i+.5,0);g.lineTo(i+.5,H);g.stroke()}for(let j=0;j<=H;j+=90){g.beginPath();g.moveTo(0,j+.5);g.lineTo(W,j+.5);g.stroke()}
+    const cx=W/2,cy=440;g.strokeStyle='rgba(255,255,255,.16)';g.lineWidth=2;for(const r of[95,190,285]){g.beginPath();g.arc(cx,cy,r,0,7);g.stroke()}
+    g.strokeStyle=amber;g.lineWidth=3;g.beginPath();g.moveTo(cx-330,cy);g.lineTo(cx-130,cy);g.moveTo(cx+130,cy);g.lineTo(cx+330,cy);g.moveTo(cx,cy-280);g.lineTo(cx,cy-130);g.moveTo(cx,cy+130);g.lineTo(cx,cy+280);g.stroke();
+    g.fillStyle=tc;g.fillRect(cx-14,cy-14,28,28)}
+  // corner brackets
+  g.strokeStyle='rgba(255,255,255,.55)';g.lineWidth=3;const m=48,L=64;for(const[a,b,dx,dy]of[[m,m,1,1],[W-m,m,-1,1],[m,H-m,1,-1],[W-m,H-m,-1,-1]]){g.beginPath();g.moveTo(a+dx*L,b);g.lineTo(a,b);g.lineTo(a,b+dy*L);g.stroke()}
+  g.textBaseline='alphabetic';sp('6px');g.font=mono(24);g.fillStyle='#fff';g.textAlign='left';g.fillText('[ OVERHEAD SPOTTER ]',96,128);
+  g.textAlign='right';g.fillStyle='#9a9a9e';g.fillText(new Date(x.ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}).toUpperCase(),W-96,128);
+  // the catch
+  g.textAlign='left';
+  // measure first, then stack the lines up from just above the footer rule
+  sp('-3px');let fs=168;do{g.font='300 '+fs+'px "Space Grotesk", Inter, sans-serif';fs-=6}while(g.measureText(x.cs).width>W-192&&fs>60);fs+=6;
+  const air=x.kind==='plane'||x.kind==='heli',bits=[air&&x.ft?num(x.ft)+' FT':'',x.mi?x.mi.toFixed(1)+' MI AWAY':'',x.reg&&x.reg!==x.cs?x.reg:'',x.route||''].filter(Boolean);
+  let y=H-200;const yOwn=x.owner?y:0;if(x.owner)y-=54;const yBits=bits.length?y:0;if(bits.length)y-=62;const yName=y;y-=70;const yCs=y;y-=fs+18;const yTier=y;
+  sp('6px');g.font=mono(26);g.fillStyle=tc;g.fillText((TIER[x.tier]||'').toUpperCase()+'  ·  +'+x.pts+' PTS',96,yTier);
+  sp('-3px');g.font='300 '+fs+'px "Space Grotesk", Inter, sans-serif';g.fillStyle='#fff';g.fillText(x.cs,92,yCs);
+  sp('0px');g.font='400 40px Inter, system-ui, sans-serif';let nm=x.name||'';while(g.measureText(nm).width>W-192&&nm.length>4)nm=nm.slice(0,-2);if(nm!==(x.name||''))nm=nm.trim()+'…';g.fillText(nm,96,yName);
+  if(yBits){sp('3px');g.font=mono(26,400);g.fillStyle='#c9c9cc';let ln=bits.join('  ·  ');while(g.measureText(ln).width>W-192&&ln.length>6)ln=ln.slice(0,-2);g.fillText(ln,96,yBits)}
+  if(yOwn){sp('0px');g.font='400 30px Inter, system-ui, sans-serif';g.fillStyle='#9a9a9e';let ow='Owner · '+x.owner;while(g.measureText(ow).width>W-192&&ow.length>10)ow=ow.slice(0,-2);g.fillText(ow,96,yOwn)}
+  g.fillStyle='rgba(255,255,255,.28)';g.fillRect(96,H-150,W-192,2);
+  sp('-1px');g.font='300 40px "Space Grotesk", Inter, sans-serif';g.fillStyle='#fff';g.fillText('The sky, Identified.',96,H-86);
+  sp('4px');g.font=mono(24);g.fillStyle=amber;g.textAlign='right';g.fillText('SPOTTER.TTCORP.AI',W-96,H-90);
+  return c;
+}
+let SHARE=null;
+async function openShare(key){
+  const x=LOG.find(e=>e.key===key);if(!x)return toast('That catch is not in your logbook');
+  S.detail=null;const P=$('#detail-p');
+  P.innerHTML='<div class="sheet-h"><div><h1>Share card</h1><p>'+esc(x.cs)+' · '+esc(x.name)+'</p></div><button class="icon-btn" data-act="close" aria-label="Close">✕</button></div><p class="note">Making your card.</p>';
+  $('#detail').hidden=false;P.classList.remove('peek');
+  const c=await makeCard(x),blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.9));
+  SHARE={x,blob,file:new File([blob],'overhead-'+String(x.cs).replace(/[^A-Za-z0-9-]/g,'')+'.jpg',{type:'image/jpeg'})};
+  P.innerHTML='<div class="sheet-h"><div><h1>Share card</h1><p>'+esc(x.cs)+' · '+esc(x.name)+'</p></div><button class="icon-btn" data-act="close" aria-label="Close">✕</button></div>'
+    +'<img class="sharecard" alt="Share card for '+esc(x.cs)+'" src="'+URL.createObjectURL(blob)+'">'
+    +(SHOTS[x.key]?'':'<p class="note">No camera photo for this catch, so the card uses the scope design. Catches logged with the camera on get the photo.</p>')
+    +'<div class="row"><button class="btn go" data-act="sharego">Share</button><button class="btn" data-act="sharesave">Save image</button></div>';
+}
+async function shareGo(){
+  if(!SHARE)return;const x=SHARE.x,text='Caught '+x.cs+' ('+x.name+') on Overhead Spotter. '+TIER[x.tier]+', +'+x.pts+' points.\n\n'+location.origin+'/club';
+  try{if(navigator.canShare&&navigator.canShare({files:[SHARE.file]})){await navigator.share({files:[SHARE.file],text});return}
+    if(navigator.share){shareSave();await navigator.share({text});return}}catch(e){if(e&&e.name==='AbortError')return}
+  shareSave();
+}
+function shareSave(){if(!SHARE)return;try{const a=document.createElement('a');a.href=URL.createObjectURL(SHARE.blob);a.download=SHARE.file.name;document.body.appendChild(a);a.click();a.remove();toast('Image saved')}catch(e){toast('Saving is not available here')}}
 function exportCsv(){
   if(!LOG.length)return toast('Your logbook is empty');
   const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"',csv=['Date (UTC),Callsign,Tail number,ICAO hex,Aircraft,Kind,Type code,Route,Owner,Rarity,Points,Altitude ft,Distance mi'].concat(LOG.map(x=>[new Date(x.ts).toISOString(),x.cs,x.reg||'',(x.hex||'').toUpperCase(),x.name,x.kind,x.type,x.route||'',x.owner||'',TIER[x.tier],x.pts,x.ft,(x.mi||0).toFixed(1)].map(q).join(','))).join('\n');
@@ -1469,7 +1593,7 @@ const pushOn=()=>{try{return localStorage.getItem('overhead.push')==='1'}catch(e
 const b64=s=>Uint8Array.from(atob((s+'='.repeat((4-s.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
 async function syncPush(off){
   const reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();if(!sub)return false;
-  const r=await fetch('api/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sub:sub.toJSON(),off:!!off,watch:[...WATCH],sats:[...SWATCH],mil:true,rare:true,emg:true,fire:true})});
+  const r=await fetch('api/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sub:sub.toJSON(),off:!!off,watch:[...WATCH],sats:[...SWATCH],mil:true,rare:true,emg:true,fire:true,pick:PICK&&PICK.ph<4?{cs:PICK.cs,code:PICK.code,lat:PICK.lat,lon:PICK.lon,ph:PICK.ph}:null,circ:CIRC.r?{r:CIRC.r,q:!!CIRC.q,lat:S.st.gps==='on'?Math.round(S.obs.lat*100)/100:null,lon:S.st.gps==='on'?Math.round(S.obs.lon*100)/100:null}:null})});
   if(off)await sub.unsubscribe();return r.ok;
 }
 async function togglePush(){
@@ -1482,7 +1606,10 @@ async function togglePush(){
     if(!await syncPush())throw 0;localStorage.setItem('overhead.push','1');updPush();toast('Alerts are on');
   }catch(e){toast('Could not turn on alerts. Try again in a minute.')}
 }
-function updPush(){const b=$('#push-btn');if(b)b.textContent=pushOn()?'Alerts are on. Tap to turn off':'Turn on alerts'}
+let CIRC={r:3,q:true};try{CIRC=Object.assign(CIRC,JSON.parse(localStorage.getItem('overhead.circ')||'{}'))}catch(e){}
+function saveCirc(){try{localStorage.setItem('overhead.circ',JSON.stringify(CIRC))}catch(e){}}
+function updCirc(){const a=$('#circ-btn'),q=$('#quiet-btn');if(a)a.textContent='Circling alerts: '+(CIRC.r?CIRC.r+' mi':'off');if(q){q.textContent='Quiet 10 PM to 7 AM: '+(CIRC.q?'on':'off');q.disabled=!CIRC.r}}
+function updPush(){const b=$('#push-btn');if(b)b.textContent=pushOn()?'Alerts are on. Tap to turn off':'Turn on alerts';updCirc()}
 try{if(HOSTED&&'serviceWorker' in navigator){navigator.serviceWorker.register('sw.js');const l=document.createElement('link');l.rel='manifest';l.href='manifest.webmanifest';document.head.appendChild(l)}}catch(e){}
 updAlign();updPush();
 
