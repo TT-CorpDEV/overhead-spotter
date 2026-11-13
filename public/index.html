@@ -148,12 +148,17 @@ h2:first-child{margin-top:0}
 .ok{color:var(--k-heli)}.off{color:var(--mute)}.bad{color:var(--t4)}
 input[type=range]{width:100%;accent-color:var(--amber)}
 #toast{position:absolute;left:var(--gl);right:var(--gr);top:64px;z-index:9;background:var(--ink);color:#0a0f2a;border-radius:10px;padding:10px 12px;font-weight:700;text-align:center}
+#toast.tap{cursor:pointer;box-shadow:0 0 0 2px var(--gold)}
+#toast .go{display:block;font-size:12px;font-weight:400;margin-top:2px}
+.icon-btn{position:relative}
+.dotn{position:absolute;top:6px;right:6px;width:9px;height:9px;border-radius:50%;background:var(--t4)}
 </style>
 
 <div class="app">
   <header class="top">
     <div class="brand">Overhead Spotter<small id="where">Starting sensors</small></div>
     <button class="chip" id="mode" data-act="settings"><i></i><span>Off</span></button>
+    <button class="icon-btn" data-act="alerts" aria-label="Alerts"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><i class="dotn" id="bell-dot" hidden></i></button>
     <button class="icon-btn" data-act="settings" aria-label="Settings and sensors">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
     </button>
@@ -238,7 +243,7 @@ input[type=range]{width:100%;accent-color:var(--amber)}
     <p class="note">Aircraft: community ADS-B receiver networks <a href="https://adsb.fi" target="_blank" rel="noopener" style="color:var(--lock)">adsb.fi</a> and <a href="https://adsb.lol" target="_blank" rel="noopener" style="color:var(--lock)">adsb.lol</a>. Satellites: orbital elements from CelesTrak. Sun and Moon: computed on your phone. Live mode sends your rounded position to the flight feed to ask what is nearby. Ships need an AIS data key and are not shown yet. Owner, model and photo come from public aircraft registry records. Your logbook and sighting counts are saved in this browser only.</p>
   </div></div>
 
-  <div id="toast" hidden role="status"></div>
+  <div id="toast" hidden role="status"><span id="toast-t"></span><span class="go" id="toast-go" hidden>Tap to see it on the map</span></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -605,7 +610,7 @@ function updRare(){
   if(!r){el.hidden=true;return}
   if(el.dataset.id!==r.id||el.hidden){el.dataset.id=r.id;el.innerHTML='<b>'+TIER[r.tier]+' overhead</b>'+esc(typeName(r))+' · Find it';el.hidden=false}
 }
-let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3800)}
+let toastT;function toast(m,id){const t=$('#toast');$('#toast-t').textContent=m;t.dataset.id=id||'';t.classList.toggle('tap',!!id);$('#toast-go').hidden=!id;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,id?7000:3800)}
 function setView(v){S.view=v;for(const n of['point','radar','map','list','hangar'])$('#v-'+n).hidden=n!==v;$$('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.view===v));if(v==='map')openMap();if(v==='list')renderList();if(v==='hangar'){renderHangar();clubSync(true)}}
 function renderFilters(){$('#mfilters').innerHTML=$('#filters').innerHTML=Object.keys(KIND).map(k=>'<button data-filter="'+k+'" aria-pressed="'+!!S.filters[k]+'"><i class="dot" style="background:var(--k-'+k+')"></i>'+KIND[k]+(k==='sky'?'':'s')+'</button>').join('')+'<button data-act="gnd" aria-pressed="'+!!S.showGnd+'">Parked aircraft</button>'}
 function renderList(){
@@ -784,6 +789,9 @@ document.addEventListener('click',e=>{
   if(b.dataset.range){S.range=+b.dataset.range;save();updRange();if(S.mode==='live')poll();return}
   if(b.dataset.filter){S.filters[b.dataset.filter]^=1;renderFilters();tick();renderList();return}
   if(a==='watch'){toggleWatch(id,b);return}
+  if(a==='alerts'){openAlerts();return}
+  if(a==='aopen'){$('#detail').hidden=true;findWatched(b.dataset.hex);return}
+  if(a==='aclear'){ALERTS=[];saveAlerts();updBell();openAlerts();return}
   if(a==='club-start'){clubForm('create');return}
   if(a==='club-invite'){clubInvite();return}
   if(a==='club-name'){clubForm('rename');return}
@@ -921,7 +929,33 @@ function halo(x,px,py,r){
   x.closePath();x.stroke();x.fill();x.restore();
 }
 const SAID={},TRK={},TRKT={},HOSTED=location.protocol==='https:'&&/netlify\.app$/.test(location.hostname);
-function announce(o){if(SAID[o.id])return;SAID[o.id]=1;toast(o.emg?'Emergency squawk '+o.sq+': '+o.cs:'On your watchlist: '+o.cs+' is nearby');try{navigator.vibrate&&navigator.vibrate([60,40,60])}catch(e){}}
+function announce(o){if(SAID[o.id])return;SAID[o.id]=1;addAlert(o.emg?'emg':'watch',o.cs||o.reg,o.id.slice(1),o.emg?o.sq:'');toast(o.emg?'Emergency squawk '+o.sq+': '+o.cs:'On your watchlist: '+o.cs+' is nearby',o.id);try{navigator.vibrate&&navigator.vibrate([60,40,60])}catch(e){}}
+/* ---------- alerts list ---------- */
+let ALERTS=[];try{ALERTS=JSON.parse(localStorage.getItem('overhead.alerts')||'[]')||[]}catch(e){}
+const saveAlerts=()=>{try{localStorage.setItem('overhead.alerts',JSON.stringify(ALERTS.slice(0,60)))}catch(e){}};
+function addAlert(kind,cs,hex,sq){
+  const now=Date.now();if(ALERTS.some(a=>a.hex===hex&&a.kind===kind&&now-a.t<18e5))return;
+  ALERTS.unshift({t:now,kind,cs:cs||'',hex:hex||'',sq:sq||'',read:0});ALERTS=ALERTS.slice(0,60);saveAlerts();updBell();
+}
+function updBell(){const d=$('#bell-dot');if(d)d.hidden=!ALERTS.some(a=>!a.read)}
+function openAlerts(){
+  ALERTS.forEach(a=>a.read=1);saveAlerts();updBell();S.detail=null;
+  const ago=t=>{const m=Math.round((Date.now()-t)/6e4);return m<1?'just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' h ago':new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric'})};
+  const KL={emg:['Emergency','var(--t4)'],watch:['Watchlist','var(--gold)'],push:['Alert','var(--lock)']};
+  const rows=ALERTS.map(a=>{const o=a.hex&&find('a'+a.hex),k=KL[a.kind]||KL.push;
+    return'<button class="item" data-act="aopen" data-hex="'+esc(a.hex)+'"><i class="dot" style="background:'+k[1]+'"></i><span class="mid"><b>'+esc(a.cs||a.hex.toUpperCase())+(a.sq?' · squawk '+esc(a.sq):'')+'</b><span>'+k[0]+' · '+ago(a.t)+'</span></span><span class="end">'+(o?'<b>'+fDst(o)+'</b>Nearby now':'Tap to find')+'</span></button>'}).join('');
+  $('#detail-p').innerHTML='<div class="sheet-h"><div><h1>Alerts</h1><p>Watchlist and emergency aircraft. Tap one to see it on the map.</p></div><button class="icon-btn" data-act="close" aria-label="Close">✕</button></div>'
+    +(rows?'<div class="list">'+rows+'</div><div class="row" style="margin-top:14px"><button class="btn" data-act="aclear">Clear alerts</button></div>':'<div class="empty">No alerts yet. One appears here when an aircraft on your watchlist comes near or a plane squawks an emergency.</div>');
+  $('#detail').hidden=false;
+}
+// open an aircraft on the map once live data is flowing (used by alerts and notification taps)
+function openWhenLive(hex,tries){
+  if(!/^[0-9a-f]{6}$/.test(hex||''))return;
+  if(S.mode==='live')return findWatched(hex);
+  if((tries||0)<40)setTimeout(()=>openWhenLive(hex,(tries||0)+1),500);else toast('Turn on location to see that aircraft');
+}
+$('#toast').addEventListener('click',()=>{const t=$('#toast'),id=t.dataset.id;if(!id)return;t.hidden=true;findWatched(id.slice(1))});
+try{if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{const d=e.data||{};if(d.alert&&d.alert.hex)addAlert('push',d.alert.cs,d.alert.hex,'');if(d.open)openWhenLive(d.open)})}catch(e){}
 function toggleWatch(id,b){
   if(!id||id[0]!=='a')return toast('Only aircraft can go on your watchlist');
   const k=id.slice(1);if(WATCH.has(k))WATCH.delete(k);else{WATCH.add(k);const o=find(id);if(o){WINFO[k]={cs:o.cs||'',reg:o.reg||'',type:typeName(o)};saveWinfo()}}
@@ -1002,6 +1036,8 @@ $('#fov').value=S.fov;$('#fov-v').textContent=S.fov+'°';
 renderFilters();updRange();updPath();renderSensors();tick();
 goLive();
 clubBoot();
+updBell();
+(()=>{const m=/^#ac-([0-9a-f]{6})$/.exec(location.hash);if(m){try{history.replaceState(null,'',location.pathname)}catch(e){}addAlert('push','',m[1],'');openWhenLive(m[1])}})();
 document.addEventListener('click',()=>{try{if(!S.sens&&typeof DeviceOrientationEvent!=='undefined'&&DeviceOrientationEvent.requestPermission)DeviceOrientationEvent.requestPermission().catch(()=>{})}catch(e){}},{once:true});
 setInterval(tick,250);
 setInterval(()=>{if(S.view==='list'&&!pdown)renderList()},1500);
