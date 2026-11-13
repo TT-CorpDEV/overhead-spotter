@@ -2,7 +2,7 @@
 """Builds a compact owner lookup from the FAA Releasable Aircraft database.
 
 Input: the unzipped ReleasableAircraft folder (MASTER.txt, ACFTREF.txt, ENGINE.txt).
-Output: faa/<first two hex digits>.json, each {icao_hex: record}, plus faa/meta.json.
+Output: faa/<first three hex digits>.json, each {icao_hex: record}, plus faa/meta.json.
 Record: [tail, owner, owner type, city, state or country, registered (YYYYMMDD), expires,
          airworthiness class, airworthiness date, year built, model, engine, fleet size]
 Street addresses are left out on purpose: the app shows city and state only.
@@ -67,7 +67,7 @@ for r in rows("MASTER.TXT"):
 shards = collections.defaultdict(dict)
 for hx, rec in recs:
     rec[12] = fleet[rec[1].upper()] if rec[1] else 0
-    shards[hx[:2]][hx] = rec
+    shards[hx[:3]][hx] = rec
 os.makedirs(os.path.join(out, "faa"), exist_ok=True)
 for k, v in shards.items():
     with open(os.path.join(out, "faa", k + ".json"), "w") as fh:
