@@ -17,6 +17,11 @@
   status = 200
 
 [[redirects]]
+  from = "/feed/trace/*"
+  to = "https://adsb.lol/data/traces/:splat"
+  status = 200
+
+[[redirects]]
   from = "/feed/live/*"
   to = "https://api.airplanes.live/v2/:splat"
   status = 200

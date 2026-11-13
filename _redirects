@@ -1,3 +1,4 @@
 /feed/fi/*    https://opendata.adsb.fi/api/v2/:splat    200
 /feed/lol/*   https://api.adsb.lol/v2/:splat          200
+/feed/trace/* https://adsb.lol/data/traces/:splat     200
 /feed/live/*  https://api.airplanes.live/v2/:splat    200
