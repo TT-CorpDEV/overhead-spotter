@@ -5,7 +5,7 @@
 <meta property="og:type" content="website"><meta property="og:title" content="Overhead Spotter · The sky, Identified.">
 <meta property="og:description" content="Point your phone at the sky, catch real aircraft and satellites, and climb a live leaderboard. Free, no app store.">
 <meta property="og:url" content="%SITE_URL%/club/"><meta property="og:image" content="%SITE_URL%/og.jpg"><meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#000000"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#000000"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="manifest" href="/manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@300;400;500&display=swap">
 <style>
@@ -109,11 +109,34 @@ footer a:hover{color:var(--white)}
 section .wrap{padding-block:56px}
 .btn{padding:18px 20px}
 }
+
+/* install sheet */
+.sheet{position:fixed;inset:0;z-index:20;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.72);backdrop-filter:blur(4px)}
+.sheet[hidden]{display:none}
+.panel{width:100%;max-width:560px;max-height:92vh;overflow-y:auto;background:var(--ink);border:1px solid var(--line-2);border-bottom:0;padding:28px max(22px,env(safe-area-inset-left,0px)) calc(28px + env(safe-area-inset-bottom,0px)) max(22px,env(safe-area-inset-right,0px))}
+@media(min-width:600px){.sheet{align-items:center}.panel{border-bottom:1px solid var(--line-2)}}
+.panel-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.panel h2{font-size:clamp(32px,8vw,44px);margin:12px 0 6px}
+.x{background:transparent;border:1px solid var(--line-2);color:var(--white);width:40px;height:40px;font:400 18px var(--mono);cursor:pointer;flex:0 0 auto}
+.isteps{list-style:none;margin:22px 0 0;padding:0;border-top:1px solid var(--line)}
+.isteps li{display:grid;grid-template-columns:54px 1fr;gap:6px;padding:16px 0;border-bottom:1px solid var(--line)}
+.isteps .n{font:400 12px var(--mono);letter-spacing:.18em;color:var(--amber);padding-top:4px}
+.isteps b{display:block;font:400 18px/1.3 var(--display);margin-bottom:3px}
+.isteps span{color:var(--gray);font-size:14.5px}
+.isteps kbd{font:500 12px var(--mono);border:1px solid var(--line-2);padding:2px 6px;color:var(--white)}
+.panel .btn{width:100%;margin-top:22px}
+.panel .btn+.btn{margin-top:0;border-top:0}
+.warn{margin-top:18px;padding:14px 16px;border:1px solid var(--line);border-left:2px solid var(--amber);color:var(--gray);font-size:14px}
+.warn b{color:var(--white);font-weight:500}
+.ios-only,.and-only,.inapp-only,.native-only,.manual-only{display:none}
+.sheet.ios .ios-only,.sheet.and .and-only{display:block}
+.sheet.ios.inapp .inapp-only{display:block}
+.sheet.and.native .native-only{display:flex}.sheet.and:not(.native) .manual-only{display:block}
 </style></head>
 <body>
 <header class="top"><div class="wrap">
   <a class="logo" href="https://ttcorp.ai">Overhead Spotter<sup>®</sup></a>
-  <a class="btn amber sm" href="/">Get the app ↗</a>
+  <a class="btn amber sm" href="#install" data-install>Get the app ↗</a>
 </div></header>
 
 <div class="hero"><div class="wrap">
@@ -122,7 +145,7 @@ section .wrap{padding-block:56px}
   <h1>The sky,<br>Identified.</h1>
   <p class="lead">Point your phone at the sky. Overhead Spotter names what's flying over you, live, and turns every catch into points on a shared leaderboard.</p>
   <div class="ctas">
-    <a class="btn amber" href="/">Get the app, free ↗</a>
+    <a class="btn amber" href="#install" data-install>Get the app, free ↗</a>
     <a class="btn" href="#setup">How to set it up ↓</a>
   </div>
   <p class="fine mono">No app store · No account · One minute</p>
@@ -141,7 +164,7 @@ section .wrap{padding-block:56px}
   <div class="os" role="group" aria-label="Your phone"><button data-os="ios" aria-pressed="false">iPhone</button><button data-os="and" aria-pressed="false">Android</button></div>
   <div class="p-ios">
     <ol class="steps grid g3">
-      <li class="cell"><span class="mono idx"></span><h3>Open it in Safari</h3><p>Tap <b>Get the app</b> on this page. It has to be Safari.</p></li>
+      <li class="cell"><span class="mono idx"></span><h3>Open the app in Safari</h3><p>Tap <b>Get the app</b>, then <b>Open the app</b>. It has to be Safari.</p></li>
       <li class="cell"><span class="mono idx"></span><h3>Add to Home Screen</h3><p>Tap <b>Share</b>, then <b>Add to Home Screen</b>. Open it from the new icon.</p></li>
       <li class="cell"><span class="mono idx"></span><h3>Join the leaderboard</h3><p>Go to <b>Hangar</b>, tap <b>Join the leaderboard</b> and pick your name.</p></li>
     </ol>
@@ -149,8 +172,8 @@ section .wrap{padding-block:56px}
   </div>
   <div class="p-and">
     <ol class="steps grid g3">
-      <li class="cell"><span class="mono idx"></span><h3>Open it in Chrome</h3><p>Tap <b>Get the app</b> on this page.</p></li>
-      <li class="cell"><span class="mono idx"></span><h3>Install the app</h3><p>Tap <b>Install app</b>, or Chrome's menu, then <b>Add to Home screen</b>.</p></li>
+      <li class="cell"><span class="mono idx"></span><h3>Tap Get the app</h3><p>In <b>Chrome</b>, tap <b>Get the app</b>, then <b>Install</b>.</p></li>
+      <li class="cell"><span class="mono idx"></span><h3>Open it from your home screen</h3><p>No Install button? Use Chrome's menu <b>⋮</b>, then <b>Add to Home screen</b>.</p></li>
       <li class="cell"><span class="mono idx"></span><h3>Join the leaderboard</h3><p>Go to <b>Hangar</b>, tap <b>Join the leaderboard</b> and pick your name.</p></li>
     </ol>
     <p class="note"><b>First launch:</b> allow location, motion and camera so the app knows where you are and where you're pointing. Alerts are optional.</p>
@@ -235,7 +258,7 @@ section .wrap{padding-block:56px}
   <p class="mono kicker">[ Ready ]</p>
   <h2>Cleared for takeoff.</h2>
   <p class="sub" style="margin:0 auto">Get the app, then tap Join the leaderboard in Hangar.</p>
-  <div class="ctas"><a class="btn amber" href="/">Get the app, free ↗</a></div>
+  <div class="ctas"><a class="btn amber" href="#install" data-install>Get the app, free ↗</a></div>
 </div></section>
 
 <footer><div class="wrap mono">
@@ -243,9 +266,63 @@ section .wrap{padding-block:56px}
   <span>spotter.ttcorp.ai</span>
 </div></footer>
 
+
+<div class="sheet" id="install" hidden role="dialog" aria-modal="true" aria-labelledby="ih"><div class="panel">
+  <div class="panel-h"><div><p class="mono kicker" style="margin:0">[ Install ]</p><h2 id="ih">Get the app.</h2></div><button class="x" data-close aria-label="Close">×</button></div>
+  <p class="gray" style="margin:0">It installs straight from the web onto your home screen. No app store, no account.</p>
+
+  <div class="ios-only">
+    <div class="warn inapp-only"><b>Open this page in Safari first.</b> You're in another app's browser. Copy the link below, open Safari, and paste it in.</div>
+    <ol class="isteps">
+      <li><span class="n">01</span><div><b>Open the app in Safari</b><span>Tap <b style="display:inline;font:inherit;color:var(--white)">Open the app</b> below.</span></div></li>
+      <li><span class="n">02</span><div><b>Tap Share</b><span>The square with the arrow <kbd>⬆</kbd>, at the bottom of Safari.</span></div></li>
+      <li><span class="n">03</span><div><b>Add to Home Screen</b><span>Scroll down the share menu, tap it, then tap <kbd>Add</kbd>.</span></div></li>
+      <li><span class="n">04</span><div><b>Open it from your home screen</b><span>Then go to <b style="display:inline;font:inherit;color:var(--white)">Hangar</b> and tap <b style="display:inline;font:inherit;color:var(--white)">Join the leaderboard</b>.</span></div></li>
+    </ol>
+    <a class="btn amber" href="/">Open the app ↗</a>
+    <button class="btn" data-copy>Copy link</button>
+  </div>
+
+  <div class="and-only">
+    <div class="native-only" style="flex-direction:column">
+      <ol class="isteps">
+        <li><span class="n">01</span><div><b>Tap Install</b><span>Chrome adds Overhead Spotter to your home screen.</span></div></li>
+        <li><span class="n">02</span><div><b>Open it from your home screen</b><span>Then go to Hangar and tap Join the leaderboard.</span></div></li>
+      </ol>
+      <button class="btn amber" data-native>Install ↓</button>
+    </div>
+    <div class="manual-only">
+      <ol class="isteps">
+        <li><span class="n">01</span><div><b>Open the app in Chrome</b><span>Tap <b style="display:inline;font:inherit;color:var(--white)">Open the app</b> below.</span></div></li>
+        <li><span class="n">02</span><div><b>Tap Chrome's menu</b><span>The three dots <kbd>⋮</kbd>, top right.</span></div></li>
+        <li><span class="n">03</span><div><b>Install app</b><span>Or <kbd>Add to Home screen</kbd>, then confirm.</span></div></li>
+        <li><span class="n">04</span><div><b>Open it from your home screen</b><span>Then go to Hangar and tap Join the leaderboard.</span></div></li>
+      </ol>
+      <a class="btn amber" href="/">Open the app ↗</a>
+    </div>
+  </div>
+  <p class="mono" style="margin:20px 0 0;color:var(--gray-dim);text-align:center"><a href="#" data-switch style="text-decoration:none">On a different phone? Switch ↔</a></p>
+</div></div>
 <script>(function(){
 var u=navigator.userAgent,os=/iPhone|iPad|iPod/.test(u)?'ios':'and';
 function set(o){document.body.classList.remove('os-ios','os-and');document.body.classList.add('os-'+o);document.querySelectorAll('.os button').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.os===o)})}
 set(os);document.querySelectorAll('.os button').forEach(function(b){b.addEventListener('click',function(){set(b.dataset.os)})});
+var sh=document.getElementById('install'),deferred=null;
+var inapp=/FBAN|FBAV|Instagram|Line\/|Snapchat|TikTok|CriOS|FxiOS|EdgiOS|GSA\//.test(u);
+function osClass(o){sh.classList.remove('ios','and');sh.classList.add(o)}
+osClass(os);if(os==='ios'&&inapp)sh.classList.add('inapp');
+function open(e){if(e)e.preventDefault();sh.hidden=false;document.body.style.overflow='hidden';try{history.replaceState(null,'','#install')}catch(x){}}
+function close(){sh.hidden=true;document.body.style.overflow='';try{history.replaceState(null,'',location.pathname)}catch(x){}}
+document.querySelectorAll('[data-install]').forEach(function(a){a.addEventListener('click',open)});
+sh.addEventListener('click',function(e){if(e.target===sh||e.target.closest('[data-close]'))close()});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!sh.hidden)close()});
+sh.querySelector('[data-switch]').addEventListener('click',function(e){e.preventDefault();var o=sh.classList.contains('ios')?'and':'ios';osClass(o);set(o)});
+var cp=sh.querySelector('[data-copy]');cp.addEventListener('click',function(){var t=location.origin+'/';try{navigator.clipboard.writeText(t).then(function(){cp.textContent='Copied ✓'},function(){cp.textContent=t})}catch(x){cp.textContent=t}});
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferred=e;sh.classList.add('native')});
+sh.querySelector('[data-native]').addEventListener('click',function(){if(!deferred)return;deferred.prompt();deferred.userChoice.then(function(r){deferred=null;sh.classList.remove('native');if(r&&r.outcome==='accepted'){sh.querySelector('.and-only').innerHTML='<ol class="isteps"><li><span class="n">✓</span><div><b>Installed.</b><span>Open Overhead Spotter from your home screen, go to Hangar and tap Join the leaderboard.</span></div></li></ol>'}})});
+window.addEventListener('appinstalled',function(){deferred=null});
+if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(function(){})}
+if(location.hash==='#install')open();
+
 })()</script>
 </body></html>
