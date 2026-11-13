@@ -228,7 +228,7 @@ input[type=range]{width:100%;accent-color:var(--amber)}
     <p class="note" style="margin-top:0">Get a notification when a watchlist, rare, military or emergency aircraft enters the logged area, even with the app closed.</p>
     <div class="row"><button class="btn" data-act="push" id="push-btn">Turn on alerts</button></div>
     <h2>Compass alignment</h2>
-    <p class="note" style="margin-top:0">If labels sit to one side of the real aircraft, aim the ring at the Sun or Moon to correct it. Never look straight at the Sun. Current correction: <span id="az-v">0°</span></p>
+    <p class="note" style="margin-top:0">If labels sit to one side of the real aircraft, aim the ring at the Sun or Moon to correct it, or open any aircraft you can see and tap Align on it. Never look straight at the Sun. Current correction: <span id="az-v">none</span></p>
     <div class="row"><button class="btn" data-act="align">Align in 5 seconds</button><button class="btn sm" data-act="alignreset">Reset</button></div>
     <h2>Scope zoom match</h2>
     <label class="lbl" for="fov">Field of view <span id="fov-v">60°</span></label>
@@ -303,8 +303,8 @@ const S={mode:'wait',obs:{lat:45.52,lon:-122.68,alt:15},view:'point',look:{az:70
   objs:[],sel:null,lock:null,cand:null,detail:null,filters:{plane:1,heli:1,sat:1,ship:1,sky:1},range:25,northUp:false,fov:60,
   live:{},sats:[],src:0,st:{gps:'off',compass:'off',camera:'off',feed:'off',sats:'off'},down:false,absSeen:false,routes:{}};
 let LOG=[];
-try{const j=JSON.parse(localStorage.getItem('overhead.v1')||'{}');LOG=j.log||[];if(j.fov)S.fov=j.fov;if(j.range)S.range=j.range;S.path=!!j.path;S.azOff=+j.az||0}catch(e){}
-const save=()=>{try{localStorage.setItem('overhead.v1',JSON.stringify({log:LOG,fov:S.fov,range:S.range,path:S.path,az:S.azOff||0}))}catch(e){}};
+try{const j=JSON.parse(localStorage.getItem('overhead.v1')||'{}');LOG=j.log||[];if(j.fov)S.fov=j.fov;if(j.range)S.range=j.range;S.path=!!j.path;S.azOff=+j.az||0;S.elOff=+j.el||0}catch(e){}
+const save=()=>{try{localStorage.setItem('overhead.v1',JSON.stringify({log:LOG,fov:S.fov,range:S.range,path:S.path,az:S.azOff||0,el:S.elOff||0}))}catch(e){}};
 
 /* ---------- geometry ---------- */
 const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
@@ -492,7 +492,7 @@ function drawAR(now){
     HITS.push([p[0],p[1],o.id]);
   });
   // lock logic
-  if(best&&bestA<7/(S.zoom||1)){
+  if(best&&bestA<Math.max(5,7/(S.zoom||1))){
     if(!S.cand||S.cand.id!==best.id)S.cand={id:best.id,t:now};
     else if(S.lock!==best.id&&now-S.cand.t>650){S.lock=best.id;try{navigator.vibrate&&navigator.vibrate(25)}catch(e){}updCard()}
   }else{S.cand=null;if(S.lock){S.lock=null;updCard()}}
@@ -637,7 +637,7 @@ function openDetail(id){
   const o=find(id);if(!o)return;S.detail=S.focus=id;const T=TYPES[o.type],done=logged(o),air=o.kind==='plane'||o.kind==='heli';
   let h='<div class="sheet-h"><div><h1>'+esc(o.cs)+'</h1><p>'+esc(typeName(o))+(o.op?' · '+esc(o.op):'')+'</p></div><em class="pill t'+o.tier+'">'+TIER[o.tier]+'</em><button class="icon-btn" data-act="close" aria-label="Close">✕</button></div>';
   h+='<div id="d-route">'+routeHtml(o)+'</div><dl class="stats" id="d-live"></dl>';
-  h+='<div class="row" style="margin:14px 0"><button class="btn" data-act="guide" data-id="'+esc(o.id)+'">Guide me to it</button>'+(air?'<button class="btn sm" data-act="path" data-id="'+esc(o.id)+'" aria-pressed="'+!!S.path+'">Flight path</button><button class="btn sm" data-act="watch" data-id="'+esc(o.id)+'" aria-pressed="'+(o.id[0]==='a'&&WATCH.has(o.id.slice(1)))+'">Watch</button>':'')+'<button class="btn go" data-act="log" data-id="'+esc(o.id)+'"'+(done?' disabled':'')+'>'+(done?'In your logbook':'Log it  +'+PTS[o.tier])+'</button></div>';
+  h+='<div class="row" style="margin:14px 0"><button class="btn" data-act="guide" data-id="'+esc(o.id)+'">Guide me to it</button>'+(air?'<button class="btn sm" data-act="path" data-id="'+esc(o.id)+'" aria-pressed="'+!!S.path+'">Flight path</button><button class="btn sm" data-act="watch" data-id="'+esc(o.id)+'" aria-pressed="'+(o.id[0]==='a'&&WATCH.has(o.id.slice(1)))+'">Watch</button>':'')+'<button class="btn go" data-act="log" data-id="'+esc(o.id)+'"'+(done?' disabled':'')+'>'+(done?'In your logbook':'Log it  +'+PTS[o.tier])+'</button></div>'+(air&&S.sens?'<div class="row" style="margin:-4px 0 14px"><button class="btn" data-act="alignon" data-id="'+esc(o.id)+'">Align compass on this aircraft</button></div>':'');
   if(air)h+='<div id="d-air">'+airHtml(o)+'</div>';
   if(T){h+='<h2>About the '+esc(T[0])+'</h2><dl class="spec"><dt>Role</dt><dd>'+T[2]+'</dd><dt>Built by</dt><dd>'+T[1]+'</dd><dt>Power</dt><dd>'+T[3]+'</dd><dt>Carries</dt><dd>'+T[4]+'</dd>'+(T[5]?'<dt>Range</dt><dd>'+num(T[5]*1.1508)+' mi</dd>':'')+'<dt>Flying since</dt><dd>'+T[7]+'</dd><dt>'+(T[10]==='heli'?'Rotor':'Wingspan')+'</dt><dd>'+T[6]+' ft</dd></dl>'
     +'<div class="span-bar"><span class="lbl">Size next to an A380 (261.6 ft)</span><div class="bar"><i style="width:'+Math.round(T[6]/261.6*100)+'%"></i></div></div><p class="fact">'+T[9]+'</p><p class="note">Typical figures. Variants and airline layouts differ.</p>'}
@@ -679,6 +679,7 @@ function onOri(ev){
   let al=ev.alpha;if(ev.webkitCompassHeading!=null)al=360-ev.webkitCompassHeading;if(al==null||ev.beta==null)return;al-=S.azOff||0;
   const a=al*D,b=ev.beta*D,g=(ev.gamma||0)*D,cA=Math.cos(a),sA=Math.sin(a),cB=Math.cos(b),sB=Math.sin(b),cG=Math.cos(g),sG=Math.sin(g);
   const nb={r:[cA*cG-sA*sB*sG,cG*sA+cA*sB*sG,-cB*sG],u:[-cB*sA,cA*cB,sB],c:[-(cG*sA*sB+cA*sG),-(sA*sG-cA*cG*sB),-(cB*cG)]};
+  if(S.elOff){const t=S.elOff*D,ct=Math.cos(t),st=Math.sin(t),c0=nb.c,u0=nb.u;nb.c=c0.map((v,i)=>v*ct+u0[i]*st);nb.u=u0.map((v,i)=>v*ct-c0[i]*st)}
   if(S.basis){const k=.25;for(const n of'ruc')for(let i=0;i<3;i++)nb[n][i]=S.basis[n][i]+(nb[n][i]-S.basis[n][i])*k}
   S.basis=nb;if(!S.sens){S.sens=true;S.st.compass='on';renderSensors()}
 }
@@ -741,7 +742,7 @@ async function goLive(){
 }
 const opOf=cs=>AIRLINE[(cs||'').slice(0,3)]||'';
 function readsb(j){if(!j.ac&&!j.aircraft)throw 0;return(j.ac||j.aircraft).filter(a=>a.lat!=null&&a.lon!=null).map(a=>{const cs=(a.flight||a.r||a.hex||'').trim(),t=a.t||'';
-  return{id:'a'+a.hex,gnd:a.alt_baro==='ground',kind:(a.category==='A7'||HELI.has(t))?'heli':'plane',cs:cs.toUpperCase(),reg:a.r||'',type:t,op:opOf(cs)||((a.dbFlags&12)?'':a.ownOp)||'',own:(a.dbFlags&12)?'':a.ownOp||'',desc:a.desc||'',year:+a.year||0,flags:a.dbFlags||0,mil:(a.dbFlags&1)?1:0,emg:a.squawk==='7500'||a.squawk==='7600'||a.squawk==='7700',
+  return{id:'a'+a.hex,gnd:a.alt_baro==='ground',age:Math.min(30,Math.max(0,+(a.seen_pos!=null?a.seen_pos:a.seen)||0)),kind:(a.category==='A7'||HELI.has(t))?'heli':'plane',cs:cs.toUpperCase(),reg:a.r||'',type:t,op:opOf(cs)||((a.dbFlags&12)?'':a.ownOp)||'',own:(a.dbFlags&12)?'':a.ownOp||'',desc:a.desc||'',year:+a.year||0,flags:a.dbFlags||0,mil:(a.dbFlags&1)?1:0,emg:a.squawk==='7500'||a.squawk==='7600'||a.squawk==='7700',
     lat0:a.lat,lon0:a.lon,alt0:(a.alt_baro==='ground'?0:(a.alt_baro??a.alt_geom??0))*0.3048,gs:a.gs||0,trk:a.track??a.true_heading??0,vr:a.baro_rate??a.geom_rate??0,sq:a.squawk||''}})}
 function osky(j){if(!('states' in j))throw 0;return(j.states||[]).filter(s=>s[5]!=null&&s[6]!=null).map(s=>{const cs=(s[1]||s[0]||'').trim();
   return{id:'a'+s[0],gnd:!!s[8],kind:s[17]===8?'heli':'plane',cs:cs.toUpperCase(),reg:'',type:'',op:opOf(cs),lat0:s[6],lon0:s[5],alt0:s[8]?0:(s[7]??s[13]??0),gs:(s[9]||0)*1.944,trk:s[10]||0,vr:(s[11]||0)*196.85,sq:s[14]||''}})}
@@ -757,7 +758,7 @@ async function poll(){
     ['https://opensky-network.org/api/states/all?lamin='+(qa-dg).toFixed(2)+'&lomin='+(qo-dl).toFixed(2)+'&lamax='+(qa+dg).toFixed(2)+'&lomax='+(qo+dl).toFixed(2),osky]];
   let ok=false;
   for(let i=0;i<SRC.length&&!ok;i++){const k=(S.src+i)%SRC.length;
-    try{const r=await fetch(SRC[k][0]);if(!r.ok)throw 0;const list=SRC[k][1](await r.json()),t=Date.now();for(const o of list){o.t=t;const pv=S.live[o.id],tr=(pv&&pv.tr)||[],l=tr[tr.length-1];if(!l||l[0]!==o.lat0||l[1]!==o.lon0)tr.push([o.lat0,o.lon0,o.alt0]);if(tr.length>150)tr.shift();o.tr=tr;o.t0=(pv&&pv.t0)||t;S.live[o.id]=o}S.src=k;ok=true}catch(e){}}
+    try{const r=await fetch(SRC[k][0]);if(!r.ok)throw 0;const list=SRC[k][1](await r.json()),t=Date.now();for(const o of list){o.t=t-(o.age||0)*1000;const pv=S.live[o.id],tr=(pv&&pv.tr)||[],l=tr[tr.length-1];if(!l||l[0]!==o.lat0||l[1]!==o.lon0)tr.push([o.lat0,o.lon0,o.alt0]);if(tr.length>150)tr.shift();o.tr=tr;o.t0=(pv&&pv.t0)||t;S.live[o.id]=o}S.src=k;ok=true}catch(e){}}
   const was=S.st.feed;S.st.feed=ok?'on':'bad';if(was!==S.st.feed){renderSensors();if(!ok)toast('Flight feed is not answering. Sun, Moon and satellites still work.')}
   pollT=setTimeout(poll,ok?10000:30000);
 }
@@ -793,7 +794,8 @@ document.addEventListener('click',e=>{
   if(a==='csv'){exportCsv();return}
   if(a==='push'){togglePush();return}
   if(a==='align'){if(!S.sens)return toast('Start sensors first, then align');S.alignAt=Date.now()+5000;$('#settings').hidden=true;setView('point');toast('Aim the ring at the real Sun or Moon. Capturing in 5 seconds.');return}
-  if(a==='alignreset'){S.azOff=0;save();updAlign();toast('Compass correction cleared');return}
+  if(a==='alignon'){const o=find(id);if(!o||!S.sens)return toast('Start sensors first, then align');S.alignId=id;S.alignAt=Date.now()+5000;$('#detail').hidden=true;S.detail=null;setView('point');toast('Hold the ring on '+o.cs+' in the real sky. Capturing in 5 seconds.');return}
+  if(a==='alignreset'){S.azOff=0;S.elOff=0;S.basis=null;save();updAlign();toast('Compass correction cleared');return}
   if(a==='path'){S.path=!S.path;if(S.path&&id)S.sel=id;const o=find(id||S.lock||S.sel);if(S.path&&o&&S.mode==='live'&&o.cs&&!S.routes[o.cs])lookupRoute(o);if(S.path&&o&&S.mode==='live')lookupTrack(o);updPath();save();return}
   if(a==='locate'){if(MAP)MAP.setView([S.obs.lat,S.obs.lon],Math.max(MAP.getZoom(),10));return}
   if(a==='gnd'){S.showGnd=!S.showGnd;renderFilters();tick();renderList();return}
@@ -930,14 +932,19 @@ async function lookupTrack(o){
   const k=o.id.slice(1),now=Date.now();if(!/^[0-9a-f]{6}$/.test(k)||now-(TRKT[k]||0)<12e4)return;TRKT[k]=now;
   try{const r=await fetch('api/track?hex='+k);if(!r.ok)return;const j=await r.json();if(Array.isArray(j.pts))TRK[k]=j.pts}catch(e){}
 }
+// Line the ring up with something whose true position is known (Sun, Moon or a tracked aircraft),
+// then shift the compass and tilt by the difference.
 function doAlign(){
-  S.alignAt=0;const B=basis(),az=camAz(B),el=camEl(B),c=celestial(Date.now(),S.obs.lat,S.obs.lon);
-  const t=[['Sun',c.sun],['Moon',c.moon]].filter(x=>x[1][1]>3).map(x=>[x[0],wrap(x[1][0]-az),Math.abs(x[1][1]-el)]).sort((p,q)=>Math.abs(p[1])+p[2]-Math.abs(q[1])-q[2])[0];
-  if(!t)return toast('Neither the Sun nor the Moon is up right now');
-  if(Math.abs(t[1])>45||t[2]>25)return toast('Could not align: the ring was not near the '+t[0]);
-  S.azOff=wrap((S.azOff||0)+t[1]);save();updAlign();toast('Compass shifted '+(t[1]>0?'+':'')+Math.round(t[1])+'° using the '+t[0]);
+  S.alignAt=0;const B=basis(),az=camAz(B),el=camEl(B),o=S.alignId&&find(S.alignId);S.alignId=null;let name,taz,tel;
+  if(o){name=o.cs;taz=o.az;tel=o.el}
+  else{const c=celestial(Date.now(),S.obs.lat,S.obs.lon),t=[['the Sun',c.sun],['the Moon',c.moon]].filter(x=>x[1][1]>3).sort((p,q)=>Math.abs(wrap(p[1][0]-az))+Math.abs(p[1][1]-el)-Math.abs(wrap(q[1][0]-az))-Math.abs(q[1][1]-el))[0];
+    if(!t)return toast('Neither the Sun nor the Moon is up right now. Open an aircraft you can see and tap Align on it.');name=t[0];taz=t[1][0];tel=t[1][1]}
+  const da=wrap(taz-az),de=tel-el;
+  if(Math.abs(da)>45||Math.abs(de)>25)return toast('Could not align: the ring was not near '+name);
+  S.azOff=wrap((S.azOff||0)+da);S.elOff=Math.max(-20,Math.min(20,(S.elOff||0)+de));S.basis=null;save();updAlign();
+  toast('Aligned on '+name+': moved '+Math.abs(Math.round(da))+'° '+(da>=0?'right':'left')+' and '+Math.abs(Math.round(de))+'° '+(de>=0?'up':'down'));
 }
-function updAlign(){const e=$('#az-v');if(e)e.textContent=(S.azOff>0?'+':'')+Math.round(S.azOff||0)+'°'}
+function updAlign(){const e=$('#az-v');if(!e)return;const a=Math.round(S.azOff||0),b=Math.round(S.elOff||0);e.textContent=!a&&!b?'none':Math.abs(a)+'° '+(a>=0?'right':'left')+', '+Math.abs(b)+'° '+(b>=0?'up':'down')}
 $('#q').addEventListener('input',renderList);
 $('#qform').addEventListener('submit',async e=>{
   e.preventDefault();const q=$('#q').value.toUpperCase().replace(/\s+/g,'');$('#q').blur();renderList();
