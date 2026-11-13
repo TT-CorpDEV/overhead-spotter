@@ -7,6 +7,8 @@ import { createHash, randomBytes } from "node:crypto";
 //   POST /api/club/sync    {code, pid, token, log, badges, name?}  upload your catches
 //   GET  /api/club/board?code=                          the ranked board
 //   POST /api/club/leave   {code, pid, token}           leave the club
+//   POST /api/club/remove  {code, pid, token, target}   club owner only: remove a player
+// The club owner is the earliest member (the person who started the club), unless meta.admin names one.
 // Points are recomputed here from the uploaded catches, so the board uses one scoring rule.
 const PTS = [0, 10, 25, 60, 150];
 const MAX_PLAYERS = 50;
@@ -39,11 +41,14 @@ async function board(store) {
   const players = [];
   for (const b of blobs) {
     const p = await store.get(b.key, { type: "json" });
-    if (p) players.push({ pid: b.key.slice(2), name: p.name, pts: p.pts || 0, n: p.n || 0, lvl: p.lvl || 1, badges: p.badges || 0, best: p.best || null, last: p.last || null, updated: p.updated || 0 });
+    if (p) players.push({ pid: b.key.slice(2), joined: p.joined || 0, name: p.name, pts: p.pts || 0, n: p.n || 0, lvl: p.lvl || 1, badges: p.badges || 0, best: p.best || null, last: p.last || null, updated: p.updated || 0 });
   }
   players.sort((a, b) => b.pts - a.pts || b.badges - a.badges || a.updated - b.updated);
   return players;
 }
+// Who may remove players: meta.admin if set, otherwise whoever joined first.
+const adminOf = (meta, players) => (meta && meta.admin && players.some((p) => p.pid === meta.admin) ? meta.admin : (players.slice().sort((a, b) => a.joined - b.joined)[0] || {}).pid);
+const pub = (players) => players.map(({ joined, ...p }) => p);
 
 export async function handle(req, store) {
   const url = new URL(req.url);
@@ -57,7 +62,7 @@ export async function handle(req, store) {
 
   if (op === "board") {
     if (!ok(url.searchParams.get("code"))) return json({ error: "That invite code is not valid." }, 403);
-    return json({ code: meta.code, players: await board(store) });
+    return json({ code: meta.code, players: pub(await board(store)) });
   }
   if (req.method !== "POST") return json({ error: "not found" }, 404);
   let body;
@@ -99,7 +104,18 @@ export async function handle(req, store) {
     const s = score(body.log);
     const name = cleanName(body.name) || p.name;
     await store.setJSON(key, { ...p, name, ...s, badges: Math.min(99, Math.max(0, Number(body.badges) || 0)), updated: Date.now() });
-    return json({ code: meta.code, players: await board(store) });
+    const players = await board(store);
+    return json({ code: meta.code, admin: adminOf(meta, players) === key.slice(2), players: pub(players) });
+  }
+  if (op === "remove") {
+    const players = await board(store);
+    if (adminOf(meta, players) !== key.slice(2)) return json({ error: "Only the club owner can remove players." }, 403);
+    const target = String(body.target || "").replace(/[^A-Za-z0-9_-]/g, "");
+    if (!target || target === key.slice(2)) return json({ error: "Pick another player to remove." }, 400);
+    if (!meta.admin) await store.setJSON("meta", { ...meta, admin: key.slice(2) });
+    await store.delete("p/" + target);
+    const left = (await board(store));
+    return json({ code: meta.code, admin: true, players: pub(left) });
   }
   if (op === "leave") {
     await store.delete(key);
@@ -110,4 +126,4 @@ export async function handle(req, store) {
 
 export default async (req) => handle(req, getStore({ name: "club", consistency: "strong" }));
 
-export const config = { path: ["/api/club/create", "/api/club/join", "/api/club/sync", "/api/club/board", "/api/club/leave"] };
+export const config = { path: ["/api/club/create", "/api/club/join", "/api/club/sync", "/api/club/board", "/api/club/leave", "/api/club/remove"] };

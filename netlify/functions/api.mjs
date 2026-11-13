@@ -8,6 +8,20 @@ import { createHash } from "node:crypto";
 //   GET  /api/track?hex= recent positions for one aircraft
 //   GET  /api/push-key   public key the app needs to subscribe to alerts
 //   POST /api/subscribe  save or remove an alert subscription
+// Pick-up mode: one flight followed to one airport. Keeps the phase already reached so a resync never repeats an alert.
+const pickOf = (k, old) => {
+  if (!k || !/^[A-Z0-9]{3,8}$/.test(String(k.cs || "")) || !/^[A-Z0-9]{3,4}$/.test(String(k.code || ""))) return null;
+  const lat = Number(k.lat), lon = Number(k.lon);
+  if (!(Math.abs(lat) <= 90 && Math.abs(lon) <= 180)) return null;
+  const same = old && old.cs === k.cs && old.code === k.code;
+  return { cs: k.cs, code: k.code, lat, lon, ph: Math.max(Math.min(4, Number(k.ph) || 0), same ? old.ph || 0 : 0), t: same ? old.t : Date.now() };
+};
+// "What's circling?" settings: radius in miles, quiet at night, and a location rounded to about half a mile.
+const circOf = (c) => {
+  if (!c || ![1, 3, 5].includes(Number(c.r))) return null;
+  const lat = Number(c.lat), lon = Number(c.lon), okLoc = c.lat != null && c.lon != null && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
+  return { r: Number(c.r), q: !!c.q, lat: okLoc ? Math.round(lat * 100) / 100 : null, lon: okLoc ? Math.round(lon * 100) / 100 : null };
+};
 const json = (o, status = 200, headers = {}) => Response.json(o, { status, headers });
 const CACHE = { "cache-control": "public, max-age=60" };
 
@@ -87,7 +101,7 @@ export default async (req) => {
     if (body.off) delete ps.subs[id];
     else {
       if (!ps.subs[id] && Object.keys(ps.subs).length >= 200) return json({ error: "alert list is full" }, 429);
-      ps.subs[id] = { sub: { endpoint: sub.endpoint, keys: sub.keys }, watch: (Array.isArray(body.watch) ? body.watch : []).slice(0, 200).map(String), mil: !!body.mil, rare: !!body.rare, emg: !!body.emg, fire: body.fire !== false, sats: (Array.isArray(body.sats) ? body.sats : []).slice(0, 25).map(Number).filter((n) => n > 0), t: Date.now() };
+      ps.subs[id] = { sub: { endpoint: sub.endpoint, keys: sub.keys }, watch: (Array.isArray(body.watch) ? body.watch : []).slice(0, 200).map(String), mil: !!body.mil, rare: !!body.rare, emg: !!body.emg, fire: body.fire !== false, sats: (Array.isArray(body.sats) ? body.sats : []).slice(0, 25).map(Number).filter((n) => n > 0), circ: circOf(body.circ), pick: pickOf(body.pick, ps.subs[id] && ps.subs[id].pick), t: Date.now() };
     }
     await strong.setJSON("push", ps);
     return json({ ok: true });
