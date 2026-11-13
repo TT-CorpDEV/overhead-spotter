@@ -2,7 +2,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=B612:wght@400;700&family=B612+Mono:wght@400;700&display=swap">
 <style>
-/* Layout: one-screen phone app. A full-bleed sky scope (camera or sample sky) carries the HUD;
+/* Layout: one-screen phone app. A full-bleed sky scope (camera or plain sky) carries the HUD;
    a lock card rides the bottom edge; four tabs below. Single dark look by choice: it is a night-sky instrument. */
 :root{
   color-scheme:dark;
@@ -148,8 +148,8 @@ input[type=range]{width:100%;accent-color:var(--amber)}
 
 <div class="app">
   <header class="top">
-    <div class="brand">Overhead Spotter<small id="where">Sample sky · Portland, OR</small></div>
-    <button class="chip" id="mode" data-act="settings"><i></i><span>Sample</span></button>
+    <div class="brand">Overhead Spotter<small id="where">Starting sensors</small></div>
+    <button class="chip" id="mode" data-act="settings"><i></i><span>Off</span></button>
     <button class="icon-btn" data-act="settings" aria-label="Settings and sensors">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
     </button>
@@ -219,7 +219,7 @@ input[type=range]{width:100%;accent-color:var(--amber)}
     <div class="sheet-h"><div><h1>Sensors</h1><p>Live mode uses your phone's GPS, compass and camera.</p></div>
       <button class="icon-btn" data-act="close" aria-label="Close">✕</button></div>
     <div id="sensor-rows"></div>
-    <div class="row" style="margin-top:14px"><button class="btn go" data-act="live" id="live-btn">Go live</button><button class="btn" data-act="demo">Use sample sky</button></div>
+    <div class="row" style="margin-top:14px"><button class="btn go" data-act="live" id="live-btn">Start sensors</button></div>
     <h2>Alerts</h2>
     <p class="note" style="margin-top:0">Get a notification when a watchlist, rare, military or emergency aircraft enters the logged area, even with the app closed.</p>
     <div class="row"><button class="btn" data-act="push" id="push-btn">Turn on alerts</button></div>
@@ -231,7 +231,7 @@ input[type=range]{width:100%;accent-color:var(--amber)}
     <input type="range" id="fov" min="40" max="80" value="60">
     <p class="note">If labels drift off the real aircraft as you pan, adjust this until they stay put.</p>
     <h2>Where data comes from</h2>
-    <p class="note">Aircraft: community ADS-B receiver networks. Satellites: orbital elements from CelesTrak. Sun and Moon: computed on your phone. Live mode sends your rounded position to the flight feed to ask what is nearby. Ships need an AIS data key and show only in the sample sky for now. Owner, model and photo come from public aircraft registry records. Your logbook and sighting counts are saved in this browser only.</p>
+    <p class="note">Aircraft: community ADS-B receiver networks. Satellites: orbital elements from CelesTrak. Sun and Moon: computed on your phone. Live mode sends your rounded position to the flight feed to ask what is nearby. Ships need an AIS data key and are not shown yet. Owner, model and photo come from public aircraft registry records. Your logbook and sighting counts are saved in this browser only.</p>
   </div></div>
 
   <div id="toast" hidden role="status"></div>
@@ -246,7 +246,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const COL={plane:cssv('--k-plane'),heli:cssv('--k-heli'),sat:cssv('--k-sat'),ship:cssv('--k-ship'),sky:cssv('--k-sky'),
   lock:cssv('--lock'),amber:cssv('--amber'),gold:cssv('--gold'),ink:cssv('--ink'),mute:cssv('--mute'),line:cssv('--line'),hi:cssv('--sky-hi'),lo:cssv('--sky-lo'),ground:cssv('--ground'),t4:cssv('--t4')};
-const KIND={plane:'Airplane',heli:'Helicopter',sat:'Satellite',ship:'Ship',sky:'Sky'};
+const KIND={plane:'Airplane',heli:'Helicopter',sat:'Satellite',sky:'Sky'};
 const TIER=['','Common','Uncommon','Rare','Epic'],PTS=[0,10,25,60,150];
 
 // code:[name, maker, role, engines, seats/payload, range nm, span ft, year, tier, fact, class]
@@ -277,24 +277,6 @@ H60:['UH-60 Black Hawk','Sikorsky','Military utility helicopter','2 × T700 turb
 const HELI=new Set(['A119','R44','H60','EC35','EC45','B407','B06','R22','R66','AS50','B429','S76','H47','A139','A109']);
 const AIRLINE={ASA:'Alaska Airlines',QXE:'Horizon Air',SKW:'SkyWest Airlines',UAL:'United Airlines',DAL:'Delta Air Lines',AAL:'American Airlines',SWA:'Southwest Airlines',FDX:'FedEx Express',UPS:'UPS Airlines',JBU:'JetBlue',NKS:'Spirit Airlines',FFT:'Frontier Airlines',HAL:'Hawaiian Airlines',ACA:'Air Canada',WJA:'WestJet',GTI:'Atlas Air',BAW:'British Airways',DLH:'Lufthansa',KAL:'Korean Air',ANA:'All Nippon Airways',JAL:'Japan Airlines',AMX:'Aeromexico',VOI:'Volaris',EJA:'NetJets',LXJ:'Flexjet'};
 
-const DEMO=[
-{id:'d1',kind:'plane',cs:'ASA 418',reg:'N531AS',type:'B739',op:'Alaska Airlines',from:'San Diego (SAN)',to:'Portland (PDX)',brg:75,km:14,ft:9800,gs:250,trk:300,vr:-1200,sq:'3214'},
-{id:'d2',kind:'plane',cs:'SWA 2291',reg:'N8712L',type:'B38M',op:'Southwest Airlines',from:'Portland (PDX)',to:'Denver (DEN)',brg:112,km:32,ft:14500,gs:330,trk:105,vr:2200,sq:'2745'},
-{id:'d3',kind:'plane',cs:'DAL 2204',reg:'N508DZ',type:'A21N',op:'Delta Air Lines',from:'Seattle (SEA)',to:'Los Angeles (LAX)',brg:250,km:45,ft:34000,gs:455,trk:175,vr:0,sq:'1432'},
-{id:'d4',kind:'plane',cs:'QXE 2087',reg:'N647QX',type:'E75L',op:'Horizon Air',from:'Portland (PDX)',to:'Boise (BOI)',brg:95,km:22,ft:11200,gs:290,trk:100,vr:1800,sq:'5521'},
-{id:'d5',kind:'plane',cs:'FDX 1408',reg:'N127FE',type:'B763',op:'FedEx Express',from:'Memphis (MEM)',to:'Portland (PDX)',brg:60,km:26,ft:6000,gs:220,trk:280,vr:-900,sq:'4107'},
-{id:'d6',kind:'plane',cs:'GTI 8134',reg:'N492MC',type:'B744',op:'Atlas Air',from:'Anchorage (ANC)',to:'Los Angeles (LAX)',brg:300,km:60,ft:36000,gs:480,trk:165,vr:0,sq:'6630'},
-{id:'d7',kind:'plane',cs:'N734KT',reg:'N734KT',type:'C172',op:'Private owner',from:'Local flight',to:'',brg:200,km:9,ft:2500,gs:95,trk:40,vr:0,sq:'1200'},
-{id:'d8',kind:'plane',cs:'N412PC',reg:'N412PC',type:'PC12',op:'Charter operator',from:'Bend (BDN)',to:'Hillsboro (HIO)',brg:160,km:38,ft:15000,gs:250,trk:330,vr:-800,sq:'4471'},
-{id:'d9',kind:'plane',cs:'N550GD',reg:'N550GD',type:'GLF5',op:'Private owner',from:'Van Nuys (VNY)',to:'Seattle (BFI)',brg:20,km:50,ft:43000,gs:470,trk:350,vr:0,sq:'3360'},
-{id:'d10',kind:'plane',cs:'GUARD 21',reg:'',type:'F15',op:'Oregon Air National Guard',from:'Portland ANG Base',to:'Training area',brg:320,km:28,ft:18000,gs:420,trk:270,vr:3000,sq:'',mil:1},
-{id:'d11',kind:'heli',cs:'LIFE 12',reg:'N119LF',type:'A119',op:'Air medical operator',from:'Hospital transfer',to:'',brg:130,km:6,ft:1400,gs:120,trk:310,vr:0,sq:'1200'},
-{id:'d12',kind:'heli',cs:'N44KP',reg:'N44KP',type:'R44',op:'News and tour operator',from:'Local flight',to:'',brg:285,km:4,ft:900,gs:70,trk:90,vr:0,sq:'1200'},
-{id:'d13',kind:'sat',cs:'ISS',name:'International Space Station',op:'NASA, Roscosmos, ESA, JAXA, CSA',brg:240,km:900,m:420000,gs:14900,trk:65},
-{id:'d14',kind:'sat',cs:'NOAA-20',name:'Polar weather satellite',op:'NOAA',brg:10,km:1400,m:824000,gs:14400,trk:190},
-{id:'d15',kind:'ship',cs:'CASCADE PEARL',name:'Bulk carrier, 190 m',op:'Sample vessel',brg:335,km:11,m:0,gs:9,trk:320},
-{id:'d16',kind:'ship',cs:'RIVER CHIEF',name:'Tug with barge',op:'Sample vessel',brg:15,km:7,m:0,gs:6,trk:95}
-];
 const SATFACT={ISS:'Orbits about 260 miles up at roughly 17,100 mph, circling Earth every 93 minutes or so. It is the third-brightest object in the sky when it passes.'};
 
 const BADGES=[
@@ -305,7 +287,6 @@ const BADGES=[
 ['rotor','Rotorhead','Log a helicopter',c=>c.some(x=>x.kind==='heli')],
 ['orbit','Orbital','Log a satellite',c=>c.some(x=>x.kind==='sat')],
 ['iss','Station keeper','Log the space station',c=>c.some(x=>x.kind==='sat'&&/^ISS/.test(x.cs))],
-['ship','Harbor watch','Log a ship',c=>c.some(x=>x.kind==='ship')],
 ['rare','Rare find','Log something Rare or better',c=>c.some(x=>x.tier>=3)],
 ['epic','Unicorn','Log an Epic',c=>c.some(x=>x.tier>=4)],
 ['high','Flight level 400','Log an aircraft above 40,000 ft',c=>c.some(x=>(x.kind==='plane')&&x.ft>=40000)],
@@ -314,7 +295,7 @@ const BADGES=[
 ['sky','Day and night','Log both the Sun and the Moon',c=>c.some(x=>x.cs==='SUN')&&c.some(x=>x.cs==='MOON')]
 ];
 
-const S={mode:'demo',obs:{lat:45.52,lon:-122.68,alt:15},view:'point',look:{az:70,el:20},sens:false,basis:null,cam:false,
+const S={mode:'wait',obs:{lat:45.52,lon:-122.68,alt:15},view:'point',look:{az:70,el:20},sens:false,basis:null,cam:false,
   objs:[],sel:null,lock:null,cand:null,detail:null,filters:{plane:1,heli:1,sat:1,ship:1,sky:1},range:25,northUp:false,fov:60,
   live:{},sats:[],src:0,st:{gps:'off',compass:'off',camera:'off',feed:'off',sats:'off'},down:false,absSeen:false,routes:{}};
 let LOG=[];
@@ -358,13 +339,6 @@ function tierOf(o){if(o.emg)return 4;if(o.kind==='plane'||o.kind==='heli')return
 const typeName=o=>(TYPES[o.type]||[])[0]||o.name||o.desc||o.type||KIND[o.kind];
 const keyOf=o=>o.kind+':'+(o.reg||o.cs||o.id);
 const logged=o=>LOG.some(x=>x.key===keyOf(o));
-function demoObjs(now){
-  return DEMO.map(o=>{
-    const P=300,tt=((now/1000+o.km*7)%P)-P/2,la0=S.obs.lat+o.km*Math.cos(o.brg*D)/111.32,lo0=S.obs.lon+o.km*Math.sin(o.brg*D)/(111.32*Math.cos(S.obs.lat*D));
-    const alt0=o.m!=null?o.m:o.ft*0.3048,p=adv(la0,lo0,alt0,o.gs,o.trk,o.kind==='sat'?0:o.vr,tt);
-    return{...o,lat:p[0],lon:p[1],alt:Math.max(0,p[2])};
-  });
-}
 function liveObjs(now){
   const out=[];
   for(const k in S.live){const o=S.live[k],dt=(now-o.t)/1000;if(dt>60){delete S.live[k];continue}
@@ -404,7 +378,7 @@ function airHtml(o){
   const owner=priv?'Withheld. The owner has asked for limited tracking display.':(db.registered_owner||o.own||(live?'':o.op)||'');
   const al=ALOG[hex],dt=t=>new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   const area=!al?'':!al.since?'Logger has not run yet':al.visits?al.visits+(al.visits===1?' visit':' visits')+' since '+dt(al.since):'No visits logged since '+dt(al.since);
-  const e=SEEN[hex],seen=!live?'Not counted in the sample sky':!e||e[2]<2?'First time this app has seen it near you':e[2]+' times since '+new Date(e[0]).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  const e=SEEN[hex],seen=!live?'Not counted':!e||e[2]<2?'First time this app has seen it near you':e[2]+' times since '+new Date(e[0]).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   const val=valueOf(o),r=(a,b)=>b?'<dt>'+a+'</dt><dd>'+esc(b)+'</dd>':'';
   let h='<h2>This aircraft</h2>';
   if(db.url_photo_thumbnail&&!priv)h+='<a href="'+esc(db.url_photo||db.url_photo_thumbnail)+'" target="_blank" rel="noopener"><img class="ph" src="'+esc(db.url_photo_thumbnail)+'" alt="Photo of '+esc(o.reg||o.cs)+'" loading="lazy"></a><p class="note" style="margin:0 0 10px">Photo: airport-data.com</p>';
@@ -443,7 +417,7 @@ async function lookupAir(o){
     if(a&&a.registration){REG[hex]=a;if(S.detail===o.id){const el=$('#d-air'),cur=find(o.id);if(el&&cur)el.innerHTML=airHtml(cur)}}}catch(e){}
 }
 function tick(){
-  const now=Date.now();let list=S.mode==='demo'?demoObjs(now):liveObjs(now);
+  const now=Date.now();let list=liveObjs(now);
   const c=celestial(now,S.obs.lat,S.obs.lon);
   list.push({id:'sun',kind:'sky',cs:'SUN',name:'The Sun',fix:c.sun},{id:'moon',kind:'sky',cs:'MOON',name:'The Moon',fix:c.moon});
   for(const o of list){geo(o);o.tier=tierOf(o)}
@@ -666,7 +640,6 @@ function openDetail(id){
   else if(o.kind==='ship'){h+='<h2>About this vessel</h2><p class="fact">'+esc(o.name)+'. Ships broadcast their position over AIS, the marine cousin of the ADS-B signal aircraft send.</p>'}
   else if(o.kind==='sky'){h+='<h2>Compass check</h2><p class="fact">Aim at '+esc(o.name)+' and see whether its marker sits on top of it. If it does, your compass and zoom are dialed in.'+(o.cs==='SUN'?' Never look straight at the Sun, and do not point your camera at it for long.':'')+'</p>'}
   else if(air){h+='<h2>Aircraft type</h2><p class="note">'+(o.type?'Type code '+esc(o.type)+' is not in the type guide yet.':'This aircraft is not reporting a type code.')+'</p>'}
-  if(S.mode==='demo')h+='<p class="note">Sample data. Go live to see real traffic.</p>';
   $('#detail-p').innerHTML=h;$('#detail').hidden=false;updDetailLive();
   if(S.mode==='live'&&air&&o.cs&&!S.routes[o.cs])lookupRoute(o);
   if(S.mode==='live'&&air){lookupAir(o);lookupSeen(o);lookupTrack(o)}
@@ -690,9 +663,9 @@ function updDetailLive(){
 function renderSensors(){
   const lab={gps:'Location (GPS)',compass:'Compass and tilt',camera:'Camera view',feed:'Flight feed',sats:'Satellite orbits'},txt={on:'On',off:'Off',wait:'Starting',bad:'Unavailable'},cls={on:'ok',off:'off',wait:'off',bad:'bad'};
   $('#sensor-rows').innerHTML=Object.keys(lab).map(k=>'<div class="stat-row"><span>'+lab[k]+'</span><span class="'+cls[S.st[k]]+'">'+txt[S.st[k]]+'</span></div>').join('');
-  const live=S.mode==='live';$('#mode').className='chip'+(live?' live':'');$('#mode span').textContent=live?'Live':'Sample';
-  $('#where').textContent=live?'Live · '+S.obs.lat.toFixed(2)+', '+S.obs.lon.toFixed(2):'Sample sky · Portland, OR';
-  $('#hint').textContent=S.sens?'Aim at the sky · pinch to zoom':'Drag to look · pinch to zoom';$('#live-btn').textContent=live?'Restart sensors':'Go live';
+  const live=S.mode==='live';$('#mode').className='chip'+(live?' live':'');$('#mode span').textContent=live?'Live':S.st.gps==='wait'?'Starting':'Off';
+  $('#where').textContent=live?'Live · '+S.obs.lat.toFixed(2)+', '+S.obs.lon.toFixed(2):S.st.gps==='wait'?'Finding your location':'Location is off. Tap the chip to start';
+  $('#hint').textContent=S.sens?'Aim at the sky · pinch to zoom':'Drag to look · pinch to zoom';$('#live-btn').textContent=live?'Restart sensors':'Start sensors';
 }
 
 /* ---------- live mode ---------- */
@@ -709,7 +682,7 @@ async function goLive(){
   try{if(typeof DeviceOrientationEvent!=='undefined'&&DeviceOrientationEvent.requestPermission)await DeviceOrientationEvent.requestPermission()}catch(e){}
   let pos;
   try{pos=await new Promise((res,rej)=>navigator.geolocation?navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:12000}):rej(new Error('no gps')))}
-  catch(e){S.st.gps='bad';renderSensors();toast('Location is blocked in this preview. Open the hosted copy on your phone to go live.');return}
+  catch(e){S.st.gps='bad';renderSensors();$('#settings').hidden=false;toast('Location is off. Allow location for this site in your browser, then tap Start sensors.');return}
   const setPos=p=>{S.obs={lat:p.coords.latitude,lon:p.coords.longitude,alt:p.coords.altitude||30}};
   setPos(pos);if(MAP)MAP.setView([S.obs.lat,S.obs.lon]);S.mode='live';S.st.gps='on';S.lock=S.sel=null;S.live={};
   try{navigator.geolocation.watchPosition(setPos,()=>{},{enableHighAccuracy:true})}catch(e){}
@@ -719,9 +692,6 @@ async function goLive(){
   try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}
   renderSensors();$('#settings').hidden=true;tick();poll();loadSats();
 }
-function goDemo(){S.mode='demo';S.obs={lat:45.52,lon:-122.68,alt:15};S.sens=false;S.cam=false;$('#cam').hidden=true;window.removeEventListener('deviceorientationabsolute',onOri);window.removeEventListener('deviceorientation',onOri);
-  try{const v=$('#cam');v.srcObject&&v.srcObject.getTracks().forEach(t=>t.stop());v.srcObject=null}catch(e){}
-  for(const k in S.st)S.st[k]='off';clearTimeout(pollT);if(MAP)MAP.setView([S.obs.lat,S.obs.lon]);renderSensors();tick();aimAtFirst()}
 const opOf=cs=>AIRLINE[(cs||'').slice(0,3)]||'';
 function readsb(j){if(!j.ac&&!j.aircraft)throw 0;return(j.ac||j.aircraft).filter(a=>a.lat!=null&&a.lon!=null).map(a=>{const cs=(a.flight||a.r||a.hex||'').trim(),t=a.t||'';
   return{id:'a'+a.hex,gnd:a.alt_baro==='ground',kind:(a.category==='A7'||HELI.has(t))?'heli':'plane',cs:cs.toUpperCase(),reg:a.r||'',type:t,op:opOf(cs)||((a.dbFlags&12)?'':a.ownOp)||'',own:(a.dbFlags&12)?'':a.ownOp||'',desc:a.desc||'',year:+a.year||0,flags:a.dbFlags||0,mil:(a.dbFlags&1)?1:0,emg:a.squawk==='7500'||a.squawk==='7600'||a.squawk==='7700',
@@ -760,7 +730,6 @@ async function loadSats(){
 }
 
 /* ---------- events ---------- */
-function aimAtFirst(){const o=find('d1');if(o)S.look={az:o.az-6,el:Math.max(4,o.el-3)}}
 document.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;const id=b.dataset.id,a=b.dataset.act;
   if(b.dataset.view)return setView(b.dataset.view);
@@ -772,7 +741,7 @@ document.addEventListener('click',e=>{
   if(a==='alog'){openAreaLog();return}
   if(a==='csv'){exportCsv();return}
   if(a==='push'){togglePush();return}
-  if(a==='align'){if(!S.sens)return toast('Go live first, then align');S.alignAt=Date.now()+5000;$('#settings').hidden=true;setView('point');toast('Aim the ring at the real Sun or Moon. Capturing in 5 seconds.');return}
+  if(a==='align'){if(!S.sens)return toast('Start sensors first, then align');S.alignAt=Date.now()+5000;$('#settings').hidden=true;setView('point');toast('Aim the ring at the real Sun or Moon. Capturing in 5 seconds.');return}
   if(a==='alignreset'){S.azOff=0;save();updAlign();toast('Compass correction cleared');return}
   if(a==='path'){S.path=!S.path;if(S.path&&id)S.sel=id;const o=find(id||S.lock||S.sel);if(S.path&&o&&S.mode==='live'&&o.cs&&!S.routes[o.cs])lookupRoute(o);if(S.path&&o&&S.mode==='live')lookupTrack(o);updPath();save();return}
   if(a==='locate'){if(MAP)MAP.setView([S.obs.lat,S.obs.lon],Math.max(MAP.getZoom(),10));return}
@@ -783,7 +752,6 @@ document.addEventListener('click',e=>{
   else if(a==='close'){b.closest('.sheet').hidden=true;S.detail=null}
   else if(a==='settings'){renderSensors();$('#settings').hidden=false}
   else if(a==='live')goLive();
-  else if(a==='demo'){goDemo();$('#settings').hidden=true}
   else if(a==='north'){S.northUp=!S.northUp;b.setAttribute('aria-pressed',S.northUp)}
   else if(a==='reset'){if(b.dataset.sure){LOG=[];save();renderHangar();toast('Logbook cleared')}else{b.dataset.sure=1;b.textContent='Tap again to clear everything'}}
 });
@@ -828,7 +796,7 @@ function watchHtml(){
 async function findWatched(k){
   let o=find('a'+k);
   if(!o){
-    if(S.mode!=='live')return toast('Go live to find aircraft on your watchlist');
+    if(S.mode!=='live')return toast('Turn on location to find aircraft on your watchlist');
     toast('Looking for it in all live traffic');
     try{const r=await fetch('feed/fi/hex/'+k);if(r.ok){const n=readsb(await r.json())[0];if(n){const t=Date.now();n.t=t;n.t0=t;n.tr=[[n.lat0,n.lon0,n.alt0]];S.live[n.id]=n;tick();o=find(n.id)}}}catch(e){}
     if(!o){const i=WINFO[k]||{};return toast((i.reg||i.cs||k.toUpperCase())+' is not flying right now')}
@@ -849,7 +817,7 @@ function halo(x,px,py,r){
 const SAID={},TRK={},TRKT={},HOSTED=location.protocol==='https:'&&/netlify\.app$/.test(location.hostname);
 function announce(o){if(SAID[o.id])return;SAID[o.id]=1;toast(o.emg?'Emergency squawk '+o.sq+': '+o.cs:'On your watchlist: '+o.cs+' is nearby');try{navigator.vibrate&&navigator.vibrate([60,40,60])}catch(e){}}
 function toggleWatch(id,b){
-  if(!id||id[0]!=='a')return toast('Go live to add aircraft to your watchlist');
+  if(!id||id[0]!=='a')return toast('Only aircraft can go on your watchlist');
   const k=id.slice(1);if(WATCH.has(k))WATCH.delete(k);else{WATCH.add(k);const o=find(id);if(o){WINFO[k]={cs:o.cs||'',reg:o.reg||'',type:typeName(o)};saveWinfo()}}
   try{localStorage.setItem('overhead.watch',JSON.stringify([...WATCH]))}catch(e){}
   b.setAttribute('aria-pressed',WATCH.has(k));toast(WATCH.has(k)?'Added to your watchlist':'Removed from your watchlist');if(pushOn())syncPush().catch(()=>{});
@@ -920,7 +888,9 @@ updAlign();updPush();
 
 /* ---------- boot ---------- */
 $('#fov').value=S.fov;$('#fov-v').textContent=S.fov+'°';
-renderFilters();updRange();updPath();renderSensors();tick();aimAtFirst();
+renderFilters();updRange();updPath();renderSensors();tick();
+goLive();
+document.addEventListener('click',()=>{try{if(!S.sens&&typeof DeviceOrientationEvent!=='undefined'&&DeviceOrientationEvent.requestPermission)DeviceOrientationEvent.requestPermission().catch(()=>{})}catch(e){}},{once:true});
 setInterval(tick,250);
 setInterval(()=>{if(S.view==='list'&&!pdown)renderList()},1500);
 requestAnimationFrame(frame);
