@@ -667,7 +667,7 @@ function updDetailLive(){
 }
 function renderSensors(){
   const lab={gps:'Location (GPS)',compass:'Compass and tilt',camera:'Camera view',feed:'Flight feed',sats:'Satellite orbits'},txt={on:'On',off:'Off',wait:'Starting',bad:'Unavailable'},cls={on:'ok',off:'off',wait:'off',bad:'bad'};
-  $('#sensor-rows').innerHTML=Object.keys(lab).map(k=>'<div class="stat-row"><span>'+lab[k]+'</span><span class="'+cls[S.st[k]]+'">'+txt[S.st[k]]+(k==='camera'&&S.st.camera==='on'&&S.camInfo?' · '+S.camInfo:'')+'</span></div>').join('');
+  $('#sensor-rows').innerHTML=Object.keys(lab).map(k=>'<div class="stat-row"><span>'+lab[k]+'</span><span class="'+cls[S.st[k]]+'">'+txt[S.st[k]]+(k==='camera'&&S.camInfo?' · '+S.camInfo:'')+'</span></div>').join('');
   const live=S.mode==='live';$('#mode').className='chip'+(live?' live':'');$('#mode span').textContent=live?'Live':S.st.gps==='wait'?'Starting':'Off';
   $('#where').textContent=live?'Live · '+S.obs.lat.toFixed(2)+', '+S.obs.lon.toFixed(2):S.st.gps==='wait'?'Finding your location':'Location is off. Tap the chip to start';
   $('#hint').textContent=S.sens?'Aim at the sky · pinch to zoom':'Drag to look · pinch to zoom';$('#live-btn').textContent=live?'Restart sensors':'Start sensors';
@@ -683,6 +683,27 @@ function onOri(ev){
   S.basis=nb;if(!S.sens){S.sens=true;S.st.compass='on';renderSensors()}
 }
 /* ---------- camera quality and zoom ---------- */
+// Some phones refuse to start the camera in their highest mode, so step down until one works.
+const CAM_MODES=[{width:{ideal:3840},height:{ideal:2160}},{width:{ideal:1920},height:{ideal:1080}},{width:{ideal:1280},height:{ideal:720}},{}];
+const CAM_ERR={NotAllowedError:'blocked in browser settings',NotReadableError:'in use by another app',NotFoundError:'no camera found',OverconstrainedError:'no matching camera',SecurityError:'blocked on this page'};
+async function camStart(){
+  const v=$('#cam');S.camInfo='';
+  try{if(v.srcObject)v.srcObject.getTracks().forEach(t=>t.stop());v.srcObject=null}catch(e){}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){S.st.camera='bad';S.camInfo='not supported here';return}
+  let err=null;
+  for(const m of CAM_MODES){
+    let st=null;
+    try{
+      st=await navigator.mediaDevices.getUserMedia({video:Object.assign({facingMode:{ideal:'environment'}},m),audio:false});
+      v.srcObject=st;v.hidden=false;await v.play();
+      S.cam=true;S.st.camera='on';camSetup(st.getVideoTracks()[0]);return;
+    }catch(e){
+      err=e;try{if(st)st.getTracks().forEach(t=>t.stop())}catch(x){}v.srcObject=null;
+      if(e&&(e.name==='NotAllowedError'||e.name==='SecurityError'||e.name==='NotFoundError'))break;
+    }
+  }
+  v.hidden=true;S.cam=false;S.st.camera='bad';S.camInfo=(err&&CAM_ERR[err.name])||((err&&err.name)||'could not start');
+}
 const CAM={track:null,zmin:1,zmax:1,max:5,busy:false,want:1};
 function camSetup(t){
   CAM.track=t;CAM.zmin=CAM.zmax=1;let caps={};try{caps=t.getCapabilities?t.getCapabilities():{}}catch(e){}
@@ -714,11 +735,7 @@ async function goLive(){
   try{navigator.geolocation.watchPosition(setPos,()=>{},{enableHighAccuracy:true})}catch(e){}
   window.addEventListener('deviceorientationabsolute',onOri);window.addEventListener('deviceorientation',onOri);
   setTimeout(()=>{if(!S.sens){S.st.compass='bad';renderSensors()}},3000);
-  try{const v=$('#cam');if(v.srcObject)v.srcObject.getTracks().forEach(t=>t.stop());
-    // ask for the sharpest picture the camera offers; the browser picks the nearest mode it supports
-    const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:3840},height:{ideal:2160},frameRate:{ideal:30}},audio:false});
-    v.srcObject=st;v.hidden=false;await v.play();S.cam=true;S.st.camera='on';camSetup(st.getVideoTracks()[0]);
-  }catch(e){S.st.camera='bad'}
+  await camStart();
   try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}
   renderSensors();$('#settings').hidden=true;tick();poll();loadSats();
 }
