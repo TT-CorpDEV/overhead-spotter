@@ -115,8 +115,18 @@ h1{font-size:30pt}
 .topbar .btn.app{display:none}
 }
 @media print{.topbar,.cta{display:none}}
+
+.getapp{margin-top:.22in;display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;background:rgba(255,176,32,.08);border:1px solid rgba(255,176,32,.45);border-radius:16px;padding:14px}
+.btn.big{background:var(--amber);color:var(--navy);font:800 13pt Inter;padding:14px 22px;border-radius:14px;box-shadow:0 6px 18px rgba(255,176,32,.35);justify-content:center}
+.how{display:flex;flex-direction:column;gap:5px;font-size:10pt;color:#d6daf2}
+.how>b{color:#fff;font-size:10.5pt}.how b{color:#fff}
+.how .tiny{font-size:8.5pt;color:#9aa1c9}
+body.is-ios .os.and,body.is-and .os.ios{display:none}
+.final{margin-top:.25in;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:var(--navy);color:#fff;border-radius:16px;padding:16px 18px}
+.final b{display:block;font:800 14pt Inter}.final span{color:#b9bfe2;font-size:9.5pt}
+@media screen and (max-width:720px){.getapp{grid-template-columns:1fr}.btn.big{width:100%}.final .btn.big{width:100%}}
 </style></head><body>
-<div class="topbar"><a class="brand" href="/"><img src="/apple-touch-icon.png" alt="">Overhead Spotter</a><div class="acts"><a class="btn app" href="/">Open the app</a><a class="btn dl" href="/club/Overhead-Spotter-Club-Guide.pdf" download="Overhead-Spotter-Club-Guide.pdf">⬇ Download PDF</a></div></div>
+<div class="topbar"><a class="brand" href="/"><img src="/apple-touch-icon.png" alt="">Overhead Spotter</a><div class="acts"><a class="btn dl" href="/">Get the app ✈</a></div></div>
 
 <!-- PAGE 1 -->
 <div class="page">
@@ -147,7 +157,14 @@ h1{font-size:30pt}
         <div>FARE<b>$0.00</b></div>
         <div>BOARDING TIME<b>~1 MIN</b></div>
       </div>
-      <div class="cta"><a class="btn dl" href="/club/Overhead-Spotter-Club-Guide.pdf" download="Overhead-Spotter-Club-Guide.pdf">⬇ Download the PDF</a><a class="btn app" href="/">Open the app ✈</a></div>
+      <div class="getapp">
+        <a class="btn big" href="/">Get the app, it's free ✈</a>
+        <div class="how"><b>Install it in 2 taps</b>
+          <span class="os ios">📱 <b>iPhone:</b> open the app in <b>Safari</b>, tap <b>Share</b> ⬆ then <b>Add to Home Screen</b>.</span>
+          <span class="os and">🤖 <b>Android:</b> open the app in <b>Chrome</b> and tap <b>Install app</b>, or menu ⋮ then <b>Add to Home screen</b>.</span>
+          <span class="tiny">No app store, no account. It lives on your home screen like any other app.</span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -257,6 +274,8 @@ h1{font-size:30pt}
       </div>
     </section>
   </div>
+  <div class="wrap"><div class="final"><div><b>Ready for takeoff?</b><span>Get the app on your home screen, then join with your invite code.</span></div><a class="btn big" href="/">Get the app ✈</a></div></div>
   <div class="foot"><span>Ask your club captain for the invite code · <span class="url">spotter.ttcorp.ai</span></span><span>Blue skies ✈ <b>See you on the leaderboard</b></span></div>
 </div>
+<script>(function(){var u=navigator.userAgent;if(/iPhone|iPad|iPod/.test(u))document.body.classList.add('is-ios');else if(/Android/.test(u))document.body.classList.add('is-and')})()</script>
 </body></html>
