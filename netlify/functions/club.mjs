@@ -10,6 +10,8 @@ import { createHash, randomBytes } from "node:crypto";
 // Points are recomputed here from the uploaded catches, so the board uses one scoring rule.
 const PTS = [0, 10, 25, 60, 150];
 const MAX_PLAYERS = 50;
+// The club's invite code. Earlier codes keep working so nobody who already joined is locked out.
+const CODE = "666";
 const json = (o, status = 200) => Response.json(o, { status, headers: { "cache-control": "no-store" } });
 const hash = (s) => createHash("sha256").update(String(s)).digest("hex");
 const cleanName = (s) => String(s || "").replace(/[\u0000-\u001f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 20);
@@ -46,11 +48,16 @@ async function board(store) {
 export async function handle(req, store) {
   const url = new URL(req.url);
   const op = url.pathname.split("/").pop();
-  const meta = await store.get("meta", { type: "json" });
+  let meta = await store.get("meta", { type: "json" });
+  if (meta && meta.code !== CODE) {
+    meta = { ...meta, old: [...new Set([...(meta.old || []), meta.code])], code: CODE };
+    await store.setJSON("meta", meta);
+  }
+  const ok = (c) => !!meta && (c === meta.code || (meta.old || []).includes(c));
 
   if (op === "board") {
-    if (!meta || url.searchParams.get("code") !== meta.code) return json({ error: "That invite code is not valid." }, 403);
-    return json({ players: await board(store) });
+    if (!ok(url.searchParams.get("code"))) return json({ error: "That invite code is not valid." }, 403);
+    return json({ code: meta.code, players: await board(store) });
   }
   if (req.method !== "POST") return json({ error: "not found" }, 404);
   let body;
@@ -66,10 +73,10 @@ export async function handle(req, store) {
     let code;
     if (op === "create") {
       if (meta) return json({ error: "A club already exists. Ask its owner for the invite link." }, 409);
-      code = id(6);
+      code = CODE;
       await store.setJSON("meta", { code, created: Date.now() });
     } else {
-      if (!meta || body.code !== meta.code) return json({ error: "That invite code is not valid." }, 403);
+      if (!ok(body.code)) return json({ error: "That invite code is not valid." }, 403);
       code = meta.code;
       const { blobs } = await store.list({ prefix: "p/" });
       if (blobs.length >= MAX_PLAYERS) return json({ error: "The club is full." }, 409);
@@ -79,7 +86,7 @@ export async function handle(req, store) {
     return json({ code, pid, token, name });
   }
 
-  if (!meta || body.code !== meta.code) return json({ error: "That invite code is not valid." }, 403);
+  if (!ok(body.code)) return json({ error: "That invite code is not valid." }, 403);
   const key = "p/" + String(body.pid || "").replace(/[^A-Za-z0-9_-]/g, "");
   const p = await store.get(key, { type: "json" });
   if (!p || p.tok !== hash(body.token)) return json({ error: "Your club membership was not found. Join again with the invite link." }, 403);
@@ -88,7 +95,7 @@ export async function handle(req, store) {
     const s = score(body.log);
     const name = cleanName(body.name) || p.name;
     await store.setJSON(key, { ...p, name, ...s, badges: Math.min(99, Math.max(0, Number(body.badges) || 0)), updated: Date.now() });
-    return json({ players: await board(store) });
+    return json({ code: meta.code, players: await board(store) });
   }
   if (op === "leave") {
     await store.delete(key);
