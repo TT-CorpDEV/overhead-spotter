@@ -240,7 +240,7 @@ input[type=range]{width:100%;accent-color:var(--amber)}
     <ol class="steps">
       <li><div><b>Allow location, motion and camera</b><span>The app needs them to know where you are and where your phone is pointing.</span></div></li>
       <li><div><b>Aim at a plane and log it</b><span>Hold the ring on it until it locks, then tap Log it to earn points and badges.</span></div></li>
-      <li><div><b>Join your friends' club</b><span>Open the invite link they sent you, or go to Hangar and tap Join with a code.</span></div></li>
+      <li><div><b>Join your friends' club</b><span>Go to Hangar and tap Join the leaderboard.</span></div></li>
     </ol>
     <div class="inst" id="w-inst"></div>
     <div class="row"><button class="btn go" data-act="welcome-go">Get started</button></div>
@@ -874,6 +874,7 @@ document.addEventListener('click',e=>{
   if(b.dataset.filter){S.filters[b.dataset.filter]^=1;renderFilters();tick();renderList();return}
   if(a==='watch'){toggleWatch(id,b);return}
   if(a==='club-code'){clubForm('joincode');return}
+  if(a==='club-join'){S.joinCode='';clubForm('join');return}
   if(a==='welcome-go'){welcomeGo();return}
   if(a==='install'){if(INST){INST.prompt();INST.userChoice.then(()=>{INST=null;updInstall()}).catch(()=>{})}return}
   if(a==='alerts'){openAlerts();return}
@@ -961,11 +962,10 @@ async function clubApi(op,body){
 }
 function clubHtml(){
   if(!HOSTED&&!/^localhost/.test(location.host))return'';
-  if(!CLUB)return'<h2>Club leaderboard</h2><p class="note" style="margin-top:0">Compete with friends on points and badges. Start a club and send the invite to friends, or join one with the code a friend sent you.</p><div class="row" style="margin-bottom:6px"><button class="btn go" data-act="club-start">Start a club</button><button class="btn" data-act="club-code">Join with a code</button></div>';
+  if(!CLUB)return'<h2>Club leaderboard</h2><p class="note" style="margin-top:0">Compete with friends on points and badges. Pick a name and you\'re on the board.</p><div class="row" style="margin-bottom:6px"><button class="btn go" data-act="club-join">Join the leaderboard</button></div>';
   const rows=(BOARD||[]).map((p,i)=>{const me=p.pid===CLUB.pid,b=p.best;
     return'<div class="item'+(me?' me':'')+'"><span class="rank">'+(i+1)+'</span><span class="mid"><b>'+esc(p.name)+(me?' (you)':'')+'</b><span>Level '+p.lvl+' · '+p.n+(p.n===1?' catch':' catches')+' · '+p.badges+(p.badges===1?' badge':' badges')+(b?' · Best: '+esc(TIER[b.tier])+' '+esc(b.name||b.cs):'')+'</span></span><span class="end"><b>'+num(p.pts)+'</b>points</span></div>'}).join('');
   return'<h2>Club leaderboard</h2><div class="list" id="club-board">'+(BOARD?rows||'<div class="empty">Nobody has logged a catch yet.</div>':'<p class="note">Loading the leaderboard.</p>')+'</div>'
-    +'<p class="note">Invite code: <span class="code">'+esc(CLUB.code)+'</span></p>'
     +'<div class="row" style="margin:10px 0 6px"><button class="btn" data-act="club-invite">Invite friends</button><button class="btn sm" data-act="club-name">Change name</button><button class="btn sm" data-act="club-leave">Leave</button></div>';
 }
 function clubPayload(){return{code:CLUB.code,pid:CLUB.pid,token:CLUB.token,name:CLUB.name,badges:BADGES.filter(b=>b[3](LOG)).length,log:LOG.map(x=>({k:x.key,tier:x.tier,cs:x.cs,name:x.name,t:x.ts}))}}
@@ -990,7 +990,7 @@ document.addEventListener('submit',async e=>{
   }catch(err){toast(err.message);btn.disabled=false}
 });
 async function clubInvite(){
-  const link=location.origin+'/#join-'+CLUB.code,text='Join my Overhead Spotter club and see who catches the rarest aircraft: '+link+'\nOn iPhone, add the app to your home screen first, then go to Hangar, tap Join with a code and enter '+CLUB.code;
+  const link=location.origin+'/club',text='Join my Overhead Spotter club and see who catches the rarest aircraft ✈ Get the app here, then tap Join the leaderboard in Hangar: '+link;
   try{if(navigator.share){await navigator.share({title:'Overhead Spotter club',text,url:link});return}}catch(e){if(e&&e.name==='AbortError')return}
   try{await navigator.clipboard.writeText(link);toast('Invite link copied. Paste it in a text to your friends.')}catch(e){toast('Invite link: '+link)}
 }
