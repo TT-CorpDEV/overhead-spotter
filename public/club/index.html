@@ -125,6 +125,13 @@ body.is-ios .os.and,body.is-and .os.ios{display:none}
 .final{margin-top:.25in;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:var(--navy);color:#fff;border-radius:16px;padding:16px 18px}
 .final b{display:block;font:800 14pt Inter}.final span{color:#b9bfe2;font-size:9.5pt}
 @media screen and (max-width:720px){.getapp{grid-template-columns:1fr}.btn.big{width:100%}.final .btn.big{width:100%}}
+
+.pick a{color:var(--navy);font-weight:700}
+.pick .for-ios,.pick .for-and{display:none}
+body.is-ios .pick .for-ios,body.is-and .pick .for-and{display:inline}
+body.is-ios .pick .for-any,body.is-and .pick .for-any{display:none}
+body.is-ios .p-and,body.is-and .p-ios{display:none}
+body.is-ios .passes,body.is-and .passes{grid-template-columns:1fr}
 </style></head><body>
 <div class="topbar"><a class="brand" href="/"><img src="/apple-touch-icon.png" alt="">Overhead Spotter</a><div class="acts"><a class="btn dl" href="/">Get the app ✈</a></div></div>
 
@@ -159,11 +166,7 @@ body.is-ios .os.and,body.is-and .os.ios{display:none}
       </div>
       <div class="getapp">
         <a class="btn big" href="/">Get the app, it's free ✈</a>
-        <div class="how"><b>Install it in 2 taps</b>
-          <span class="os ios">📱 <b>iPhone:</b> open the app in <b>Safari</b>, tap <b>Share</b> ⬆ then <b>Add to Home Screen</b>.</span>
-          <span class="os and">🤖 <b>Android:</b> open the app in <b>Chrome</b> and tap <b>Install app</b>, or menu ⋮ then <b>Add to Home screen</b>.</span>
-          <span class="tiny">No app store, no account. It lives on your home screen like any other app.</span>
-        </div>
+        <div class="how"><b>No app store, no account.</b><span class="tiny">Takes about a minute. Your phone's setup steps are just below.</span></div>
       </div>
     </div>
   </div>
@@ -181,9 +184,10 @@ body.is-ios .os.and,body.is-and .os.ios{display:none}
     </section>
 
     <section>
-      <h2><span class="n">02</span>Pick your boarding pass</h2>
+      <h2><span class="n">02</span>Set up on your phone</h2>
+      <p class="lead pick"><span class="for-ios">Steps for iPhone. <a href="#" data-os="and">On Android instead?</a></span><span class="for-and">Steps for Android. <a href="#" data-os="ios">On an iPhone instead?</a></span><span class="for-any">Pick your phone below.</span></p>
       <div class="passes">
-        <div class="pass"><div class="main">
+        <div class="pass p-ios"><div class="main">
           <div class="hd"><b>iPhone</b><span class="mono">SAFARI · 3 STEPS</span></div>
           <ol>
             <li>Open the invite link in <b>Safari</b>.</li>
@@ -193,7 +197,7 @@ body.is-ios .os.and,body.is-and .os.ios{display:none}
           <div class="note"><b>Why the extra step?</b> iPhone keeps home-screen apps separate from Safari. Join from the icon, or your progress stays stuck in the browser.</div>
         </div><div class="stub"><span>SEAT 1A</span></div></div>
 
-        <div class="pass"><div class="main">
+        <div class="pass p-and"><div class="main">
           <div class="hd"><b>Android</b><span class="mono">CHROME · 2 STEPS</span></div>
           <ol>
             <li>Tap the invite link. It opens in <b>Chrome</b> and asks for your name. You're in.</li>
@@ -277,5 +281,5 @@ body.is-ios .os.and,body.is-and .os.ios{display:none}
   <div class="wrap"><div class="final"><div><b>Ready for takeoff?</b><span>Get the app on your home screen, then join with your invite code.</span></div><a class="btn big" href="/">Get the app ✈</a></div></div>
   <div class="foot"><span>Ask your club captain for the invite code · <span class="url">spotter.ttcorp.ai</span></span><span>Blue skies ✈ <b>See you on the leaderboard</b></span></div>
 </div>
-<script>(function(){var u=navigator.userAgent;if(/iPhone|iPad|iPod/.test(u))document.body.classList.add('is-ios');else if(/Android/.test(u))document.body.classList.add('is-and')})()</script>
+<script>(function(){var u=navigator.userAgent;if(/iPhone|iPad|iPod/.test(u))document.body.classList.add('is-ios');else if(/Android/.test(u))document.body.classList.add('is-and');document.querySelectorAll('[data-os]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();var b=document.body.classList;b.remove('is-ios','is-and');b.add('is-'+a.dataset.os)})})})()</script>
 </body></html>
