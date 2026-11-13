@@ -413,14 +413,14 @@ function saveSeen(now){seenT=now;seenDirty=0;const ks=Object.keys(SEEN);if(ks.le
 function airHtml(o){
   const live=o.id[0]==='a',hex=live?o.id.slice(1):'',okHex=/^[0-9a-f]{6}$/.test(hex),db=REG[hex]||{},priv=(o.flags&12)>0,yr=o.year,age=yr?new Date().getFullYear()-yr:0;
   const model=db.manufacturer?db.manufacturer+' '+(db.type||''):(o.desc||'');
-  const owner=priv?'Withheld. The owner has asked for limited tracking display.':(db.registered_owner||o.own||(live?'':o.op)||'');
+  const own0=db.registered_owner||o.own||'',owner=o.noOwner?'':priv?(own0?own0+' · owner requested limited display':'Not listed. The owner has asked for limited tracking display.'):(own0||(live?'':o.op)||'');
   const al=ALOG[hex],dt=t=>new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   const area=!al?'':!al.since?'Logger has not run yet':al.visits?al.visits+(al.visits===1?' visit':' visits')+' since '+dt(al.since):'No visits logged since '+dt(al.since);
   const e=SEEN[hex],seen=!live?'Not counted':!e||e[2]<2?'First time this app has seen it near you':e[2]+' times since '+new Date(e[0]).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   const val=valueOf(o),r=(a,b)=>b?'<dt>'+a+'</dt><dd>'+esc(b)+'</dd>':'';
   let h='<h2>This aircraft</h2>';
   if(db.url_photo_thumbnail&&!priv)h+='<a href="'+esc(db.url_photo||db.url_photo_thumbnail)+'" target="_blank" rel="noopener"><img class="ph" src="'+esc(db.url_photo_thumbnail)+'" alt="Photo of '+esc(o.reg||o.cs)+'" loading="lazy"></a><p class="note" style="margin:0 0 10px">Photo: airport-data.com</p>';
-  h+='<dl class="spec">'+r('Tail number',o.reg)+r('ICAO hex',okHex?hex.toUpperCase():'')+r('Model',model)+r('Category',CATN[o.cat]||'')+r('Built',yr?yr+' ('+age+(age===1?' year':' years')+' old)':'')+r('Registered owner',owner)+r('Registered in',priv?'':db.registered_owner_country_name)+r('Flown by',o.op&&o.op!==owner&&live?o.op:'')+r('Seen near you',seen)+r('Area log, 24/7',area)+r('Rough value',val)+'</dl>';
+  h+='<dl class="spec">'+r('Tail number',o.reg)+r('ICAO hex',okHex?hex.toUpperCase():'')+r('Model',model)+r('Category',CATN[o.cat]||'')+r('Built',yr?yr+' ('+age+(age===1?' year':' years')+' old)':'')+r('Registered owner',owner)+r('Registered in',o.noOwner?'':db.registered_owner_country_name)+r('Flown by',o.op&&o.op!==owner&&live?o.op:'')+r('Seen near you',seen)+r('Area log, 24/7',area)+r('Rough value',val)+'</dl>';
   if(val&&!MILV[o.type])h+='<p class="note">Value is a model estimate from type and age, not an appraisal. Condition, engine time and avionics can move it a lot.</p>';
   if(live&&okHex&&!priv){const reg=o.reg||'';h+='<div class="links">'+(/^N[0-9]/.test(reg)?'<a href="https://registry.faa.gov/AircraftInquiry/Search/NNumberResult?nNumberTxt='+encodeURIComponent(reg)+'" target="_blank" rel="noopener">FAA record</a>':'')+'<a href="https://globe.adsbexchange.com/?icao='+hex+'" target="_blank" rel="noopener">Flight history</a>'+(reg?'<a href="https://www.flightaware.com/live/flight/'+encodeURIComponent(reg)+'" target="_blank" rel="noopener">FlightAware</a>':'')+'</div>'}
   return h;
@@ -450,7 +450,7 @@ function drawPath(x,o,toXY){
 function gcPts(a,b,n){const A=ecef(a[0],a[1],0),Z=ecef(b[0],b[1],0),out=[];for(let i=0;i<=n;i++){const t=i/n,v=[A[0]+(Z[0]-A[0])*t,A[1]+(Z[1]-A[1])*t,A[2]+(Z[2]-A[2])*t];out.push([Math.atan2(v[2],Math.hypot(v[0],v[1]))/D,Math.atan2(v[1],v[0])/D])}return out}
 function updPath(){$$('[data-act=path]').forEach(b=>b.setAttribute('aria-pressed',!!S.path))}
 async function lookupAir(o){
-  const hex=o.id.slice(1);if(REG[hex]||(o.flags&12)||!/^[0-9a-f]{6}$/.test(hex))return;REG[hex]={};
+  const hex=o.id.slice(1);if(REG[hex]||!/^[0-9a-f]{6}$/.test(hex))return;REG[hex]={};
   try{const j=await(await fetch('https://api.adsbdb.com/v0/aircraft/'+hex)).json(),a=j&&j.response&&j.response.aircraft;
     if(a&&a.registration){REG[hex]=a;if(S.detail===o.id){const el=$('#d-air'),cur=find(o.id);if(el&&cur)el.innerHTML=airHtml(cur)}}}catch(e){}
 }
@@ -893,6 +893,7 @@ document.addEventListener('click',e=>{
   if(a==='wfind'){findWatched(b.dataset.hex);return}
   if(a==='wdel'){const k=b.dataset.hex;WATCH.delete(k);delete WINFO[k];saveWatch();saveWinfo();renderHangar();toast('Removed from your watchlist');if(pushOn())syncPush().catch(()=>{});return}
   if(a==='alog'){openAreaLog();return}
+  if(a==='tail'){openTail(b.dataset.hex);return}
   if(a==='csv'){exportCsv();return}
   if(a==='push'){togglePush();return}
   if(a==='align'){if(!S.sens)return toast('Start sensors first, then align');S.alignAt=Date.now()+5000;$('#settings').hidden=true;setView('point');toast('Aim the ring at the real Sun or Moon. Capturing in 5 seconds.');return}
@@ -1052,13 +1053,29 @@ $('#toast').addEventListener('click',()=>{const t=$('#toast'),id=t.dataset.id;if
 try{if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{const d=e.data||{};if(d.alert&&d.alert.hex)addAlert('push',d.alert.cs,d.alert.hex,'');if(d.open)openWhenLive(d.open)})}catch(e){}
 function toggleWatch(id,b){
   if(!id||id[0]!=='a')return toast('Only aircraft can go on your watchlist');
-  const k=id.slice(1);if(WATCH.has(k))WATCH.delete(k);else{WATCH.add(k);const o=find(id);if(o){WINFO[k]={cs:o.cs||'',reg:o.reg||'',type:typeName(o)};saveWinfo()}}
+  const k=id.slice(1);if(WATCH.has(k))WATCH.delete(k);else{WATCH.add(k);const o=find(id);if(o){WINFO[k]={cs:o.cs||'',reg:o.reg||'',type:typeName(o)};saveWinfo()}else if(TAILS[k]){const t=TAILS[k];WINFO[k]={cs:'',reg:t.reg||(REG[k]||{}).registration||'',type:(TYPES[t.type]||[])[0]||t.type||''};saveWinfo()}}
   try{localStorage.setItem('overhead.watch',JSON.stringify([...WATCH]))}catch(e){}
   b.setAttribute('aria-pressed',WATCH.has(k));toast(WATCH.has(k)?'Added to your watchlist':'Removed from your watchlist');if(pushOn())syncPush().catch(()=>{});
 }
 async function lookupTrack(o){
   const k=o.id.slice(1),now=Date.now();if(!/^[0-9a-f]{6}$/.test(k)||now-(TRKT[k]||0)<12e4)return;TRKT[k]=now;
+  // Whole flight first: adsb.lol keeps a full-day trace for every aircraft. Fall back to our own area log.
+  const full=await fullTrace(k);if(full&&full.length>1){TRK[k]=full;return}
   try{const r=await fetch('api/track?hex='+k);if(!r.ok)return;const j=await r.json();if(Array.isArray(j.pts))TRK[k]=j.pts}catch(e){}
+}
+// Reads the readsb trace (entries are [seconds after timestamp, lat, lon, alt ft or "ground", gs, track, flags, ...])
+// and keeps the current flight: everything since the last ground contact, new-leg flag or 45-minute gap.
+async function fullTrace(k){
+  try{const r=await fetch('feed/trace/'+k.slice(-2)+'/trace_full_'+k+'.json');if(!r.ok)return null;return traceLeg(await r.json())}catch(e){return null}
+}
+function traceLeg(j){
+  if(!j||!Array.isArray(j.trace))return null;const base=(+j.timestamp||0)*1000;let pts=[],lastT=0,lastAlt=0;
+  for(const e of j.trace){const t=base+(+e[0]||0)*1000;
+    if(e[3]==='ground'||(e[6]&2)||(lastT&&t-lastT>27e5)){pts=[];lastAlt=0}
+    lastT=t;if(e[3]==='ground'||e[1]==null||e[2]==null)continue;
+    const alt=typeof e[3]==='number'?e[3]:lastAlt;lastAlt=alt;pts.push([t,+e[1],+e[2],alt])}
+  if(pts.length>1500){const n=Math.ceil(pts.length/1500),last=pts[pts.length-1];pts=pts.filter((_,i)=>i%n===0);if(pts[pts.length-1]!==last)pts.push(last)}
+  return pts;
 }
 // Line the ring up with something whose true position is known (Sun, Moon or a tracked aircraft),
 // then shift the compass and tilt by the difference.
@@ -1073,9 +1090,16 @@ function doAlign(){
   toast('Aligned on '+name+': moved '+Math.abs(Math.round(da))+'° '+(da>=0?'right':'left')+' and '+Math.abs(Math.round(de))+'° '+(de>=0?'up':'down'));
 }
 function updAlign(){const e=$('#az-v');if(!e)return;const a=Math.round(S.azOff||0),b=Math.round(S.elOff||0);e.textContent=!a&&!b?'none':Math.abs(a)+'° '+(a>=0?'right':'left')+', '+Math.abs(b)+'° '+(b>=0?'up':'down')}
+// Ticket-style flight numbers (AS 1234) to the ICAO callsign that aircraft broadcast (ASA1234).
+const IATA={AS:'ASA',QX:'QXE',DL:'DAL',WN:'SWA',UA:'UAL',AA:'AAL',B6:'JBU',NK:'NKS',F9:'FFT',G4:'AAY',HA:'HAL',SY:'SCX',MX:'MXY',XP:'CXP',
+  OO:'SKW',YX:'RPA','9E':'EDV',MQ:'ENY',OH:'JIA',YV:'ASH',ZW:'AWI',G7:'GJS',PT:'PDT',C5:'UCA',CP:'CPZ',QK:'JZA',
+  AC:'ACA',WS:'WJA',PD:'POE',TS:'TSC',F8:'FLE',AM:'AMX',Y4:'VOI',VB:'VIV',BA:'BAW',VS:'VIR',AF:'AFR',KL:'KLM',LH:'DLH',LX:'SWR',EI:'EIN',IB:'IBE',
+  QF:'QFA',NZ:'ANZ',JL:'JAL',NH:'ANA',KE:'KAL',OZ:'AAR',CX:'CPA',BR:'EVA',CI:'CAL',SQ:'SIA',EK:'UAE',QR:'QTR',EY:'ETD',TK:'THY',
+  FX:'FDX','5X':'UPS','5Y':'GTI',K4:'CKS',PO:'PAC','8C':'ATN',GB:'ABX'};
+function ticketCs(q){const m=/^([A-Z][A-Z0-9]|[0-9][A-Z])(\d{1,4}[A-Z]?)$/.exec(q);if(!m||!IATA[m[1]])return '';return IATA[m[1]]+m[2].replace(/^0+(?=\d)/,'')}
 $('#q').addEventListener('input',renderList);
 $('#qform').addEventListener('submit',async e=>{
-  e.preventDefault();const q=$('#q').value.toUpperCase().replace(/\s+/g,'');$('#q').blur();renderList();
+  e.preventDefault();let q=$('#q').value.toUpperCase().replace(/\s+/g,'');const tq=ticketCs(q);if(tq){q=tq;$('#q').value=tq}$('#q').blur();renderList();
   if(!q||S.mode!=='live'||$('#list .item'))return;
   toast('Searching all live traffic for '+q);
   for(const kind of['callsign','registration','hex']){
@@ -1091,13 +1115,34 @@ async function openAreaLog(){
   let j=null;try{const r=await fetch('api/log');if(r.ok)j=await r.json()}catch(e){}
   if(!j||!j.since){P.innerHTML=head+'<div class="empty">'+(j?'The logger has not finished its first run yet. Check back in a few minutes.':'The area log is only available in the hosted app.')+'</div>';return}
   const dt=t=>new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric'}),hrs=j.hours||[],mx=Math.max(1,...hrs),
-    row=r=>'<div class="item"><i class="dot" style="background:var(--k-plane)"></i><span class="mid"><b>'+esc(r.reg||r.hex.toUpperCase())+'</b><span>'+esc((TYPES[r.type]||[])[0]||r.type||'Type not reported')+'</span></span><span class="end"><b>'+r.visits+(r.visits===1?' visit':' visits')+'</b>last '+dt(r.last)+'</span></div>',
+    row=r=>{TAILS[r.hex]={reg:r.reg||'',type:r.type||'',visits:r.visits,first:r.first,last:r.last};return'<button class="item" data-act="tail" data-hex="'+esc(r.hex)+'"><i class="dot" style="background:'+(WATCH.has(r.hex)?'var(--gold)':'var(--k-plane)')+'"></i><span class="mid"><b>'+esc(r.reg||r.hex.toUpperCase())+'</b><span>'+esc((TYPES[r.type]||[])[0]||r.type||'Type not reported')+'</span></span><span class="end"><b>'+r.visits+(r.visits===1?' visit':' visits')+'</b>last '+dt(r.last)+'</span></button>'},
     sec=(t,a)=>a&&a.length?'<h2>'+t+'</h2><div class="list">'+a.map(row).join('')+'</div>':'';
   P.innerHTML=head+'<div class="score"><div><span class="lbl">Aircraft</span><b>'+num(j.known)+'</b></div><div><span class="lbl">Visits</span><b>'+num(j.visits)+'</b></div><div><span class="lbl">Since</span><b style="font-size:16px">'+dt(j.since)+'</b></div></div>'
     +(hrs.some(v=>v)?'<h2>Busiest hours</h2><div class="bars" role="img" aria-label="New visits by hour of day">'+hrs.map((v,i)=>'<i style="height:'+Math.round(v/mx*100)+'%" title="'+i+':00, '+v+' visits"></i>').join('')+'</div><div class="axis"><span>12 AM</span><span>6 AM</span><span>Noon</span><span>6 PM</span><span>11 PM</span></div>':'')
     +sec('Most frequent visitors',j.top)+sec('Newest first-timers',j.fresh)+sec('Military',j.mil)
     +(j.types&&j.types.length?'<h2>Most common types</h2><dl class="spec">'+j.types.map(t=>'<dt>'+esc((TYPES[t[0]]||[])[0]||t[0])+'</dt><dd>'+num(t[1])+(t[1]===1?' visit':' visits')+'</dd>').join('')+'</dl>':'')
     +'<div class="links"><a href="api/export">Download full log (CSV)</a></div><p class="note">Covers a fixed circle around central Portland. Counting started '+dt(j.since)+'.</p>';
+}
+// Tap a frequent visitor: open it live if it is flying anywhere, otherwise show its profile from the registry and our log.
+const TAILS={};
+async function openTail(k){
+  if(!/^[0-9a-f]{6}$/.test(k||''))return;
+  let o=find('a'+k);
+  if(!o){toast('Checking whether it is flying');
+    try{const r=await fetch('feed/fi/hex/'+k);if(r.ok){const n=readsb(await r.json())[0];if(n){const t=Date.now();n.t=t;n.t0=t;n.tr=[[n.lat0,n.lon0,n.alt0]];S.live[n.id]=n;tick();o=find(n.id)}}}catch(e){}}
+  if(o){openDetail(o.id);return}
+  const P=$('#detail-p'),t=TAILS[k]||{};S.detail=null;
+  if(!REG[k]){try{const j=await(await fetch('https://api.adsbdb.com/v0/aircraft/'+k)).json(),a=j&&j.response&&j.response.aircraft;if(a&&a.registration)REG[k]=a}catch(e){}}
+  try{const r=await fetch('api/seen?hex='+k);if(r.ok){const j=await r.json();if('visits' in j)ALOG[k]=j}}catch(e){}
+  const db=REG[k]||{},reg=t.reg||db.registration||k.toUpperCase(),tn=(TYPES[t.type]||[])[0]||(db.manufacturer?db.manufacturer+' '+(db.type||''):'')||t.type||'Type not reported';
+  const pseudo={id:'a'+k,kind:'plane',reg:t.reg||db.registration||'',type:t.type||db.icao_type||'',cs:'',flags:0,desc:db.type||'',cat:catOf('',db.registered_owner||'',0)};
+  const dt=x=>x?new Date(x).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'';
+  P.innerHTML='<div class="sheet-h"><div><h1>'+esc(reg)+'</h1><p>'+esc(tn)+'</p></div><button class="icon-btn" data-act="close" aria-label="Close">✕</button></div>'
+    +'<p class="note" style="margin-top:0">Not in the air right now. Watch it to get an alert the next time it flies near you.</p>'
+    +'<div class="row" style="margin-bottom:6px"><button class="btn" data-act="watch" data-id="a'+k+'" aria-pressed="'+WATCH.has(k)+'">Watch</button><button class="btn" data-act="alog">Back to area log</button></div>'
+    +'<h2>Visits near Portland</h2><dl class="spec"><dt>Visits</dt><dd>'+num(t.visits||0)+'</dd>'+(t.first?'<dt>First seen</dt><dd>'+esc(dt(t.first))+'</dd>':'')+(t.last?'<dt>Last seen</dt><dd>'+esc(dt(t.last))+'</dd>':'')+'</dl>'
+    +'<div id="d-air">'+airHtml(pseudo)+'</div>';
+  $('#detail').hidden=false;
 }
 function exportCsv(){
   if(!LOG.length)return toast('Your logbook is empty');
