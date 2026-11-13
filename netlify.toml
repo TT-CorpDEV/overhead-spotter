@@ -1,6 +1,6 @@
 [build]
   publish = "public"
-  command = "echo static site"
+  command = "node assets.mjs"
 
 [functions]
   directory = "netlify/functions"
