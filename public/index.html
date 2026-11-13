@@ -971,7 +971,7 @@ function clubHtml(){
 function clubPayload(){return{code:CLUB.code,pid:CLUB.pid,token:CLUB.token,name:CLUB.name,badges:BADGES.filter(b=>b[3](LOG)).length,log:LOG.map(x=>({k:x.key,tier:x.tier,cs:x.cs,name:x.name,t:x.ts}))}}
 async function clubSync(now){
   if(!CLUB)return;clearTimeout(clubT);
-  const go=async()=>{try{const j=await clubApi('sync',clubPayload());BOARD=j.players;if(S.view==='hangar')renderHangar()}catch(e){if(/not found|not valid/.test(e.message)){CLUB=null;BOARD=null;saveClub();if(S.view==='hangar')renderHangar()}toast(e.message)}};
+  const go=async()=>{try{const j=await clubApi('sync',clubPayload());if(j.code&&j.code!==CLUB.code){CLUB.code=j.code;saveClub()}BOARD=j.players;if(S.view==='hangar')renderHangar()}catch(e){if(/not found|not valid/.test(e.message)){CLUB=null;BOARD=null;saveClub();if(S.view==='hangar')renderHangar()}toast(e.message)}};
   if(now)return go();clubT=setTimeout(go,1500);
 }
 function clubForm(kind){
