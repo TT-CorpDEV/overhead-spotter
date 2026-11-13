@@ -667,7 +667,7 @@ function updDetailLive(){
 }
 function renderSensors(){
   const lab={gps:'Location (GPS)',compass:'Compass and tilt',camera:'Camera view',feed:'Flight feed',sats:'Satellite orbits'},txt={on:'On',off:'Off',wait:'Starting',bad:'Unavailable'},cls={on:'ok',off:'off',wait:'off',bad:'bad'};
-  $('#sensor-rows').innerHTML=Object.keys(lab).map(k=>'<div class="stat-row"><span>'+lab[k]+'</span><span class="'+cls[S.st[k]]+'">'+txt[S.st[k]]+'</span></div>').join('');
+  $('#sensor-rows').innerHTML=Object.keys(lab).map(k=>'<div class="stat-row"><span>'+lab[k]+'</span><span class="'+cls[S.st[k]]+'">'+txt[S.st[k]]+(k==='camera'&&S.st.camera==='on'&&S.camInfo?' · '+S.camInfo:'')+'</span></div>').join('');
   const live=S.mode==='live';$('#mode').className='chip'+(live?' live':'');$('#mode span').textContent=live?'Live':S.st.gps==='wait'?'Starting':'Off';
   $('#where').textContent=live?'Live · '+S.obs.lat.toFixed(2)+', '+S.obs.lon.toFixed(2):S.st.gps==='wait'?'Finding your location':'Location is off. Tap the chip to start';
   $('#hint').textContent=S.sens?'Aim at the sky · pinch to zoom':'Drag to look · pinch to zoom';$('#live-btn').textContent=live?'Restart sensors':'Start sensors';
@@ -682,6 +682,27 @@ function onOri(ev){
   if(S.basis){const k=.25;for(const n of'ruc')for(let i=0;i<3;i++)nb[n][i]=S.basis[n][i]+(nb[n][i]-S.basis[n][i])*k}
   S.basis=nb;if(!S.sens){S.sens=true;S.st.compass='on';renderSensors()}
 }
+/* ---------- camera quality and zoom ---------- */
+const CAM={track:null,zmin:1,zmax:1,max:5,busy:false,want:1};
+function camSetup(t){
+  CAM.track=t;CAM.zmin=CAM.zmax=1;let caps={};try{caps=t.getCapabilities?t.getCapabilities():{}}catch(e){}
+  if(caps.zoom&&caps.zoom.max>caps.zoom.min){CAM.zmin=caps.zoom.min||1;CAM.zmax=caps.zoom.max}
+  CAM.max=Math.max(5,Math.min(20,(CAM.zmax/CAM.zmin)*2));
+  const adv=[];if(caps.focusMode&&caps.focusMode.includes('continuous'))adv.push({focusMode:'continuous'});
+  if(caps.exposureMode&&caps.exposureMode.includes('continuous'))adv.push({exposureMode:'continuous'});
+  if(adv.length)t.applyConstraints({advanced:adv}).catch(()=>{});
+  let s={};try{s=t.getSettings()}catch(e){}
+  S.camInfo=(s.width&&s.height?Math.max(s.width,s.height)+'×'+Math.min(s.width,s.height):'')+(CAM.zmax>CAM.zmin?' · lens zoom to '+Math.round(CAM.zmax/CAM.zmin)+'×':' · screen zoom only');
+  camZoom();
+}
+// zoom on the camera itself first (crops from the full sensor), then stretch on screen only past its limit
+function camZoom(){
+  const z=S.zoom||1,native=Math.min(z,CAM.zmax/CAM.zmin),v=$('#cam');
+  v.style.transform=z/native>1.001?'scale('+(z/native)+')':'';
+  if(!CAM.track||CAM.zmax<=CAM.zmin)return;
+  CAM.want=CAM.zmin*native;if(CAM.busy)return;CAM.busy=true;
+  const go=()=>{const w=CAM.want;CAM.track.applyConstraints({advanced:[{zoom:w}]}).catch(()=>{}).then(()=>{if(CAM.want!==w)go();else CAM.busy=false})};go();
+}
 async function goLive(){
   S.st.gps='wait';renderSensors();
   try{if(typeof DeviceOrientationEvent!=='undefined'&&DeviceOrientationEvent.requestPermission)await DeviceOrientationEvent.requestPermission()}catch(e){}
@@ -693,7 +714,11 @@ async function goLive(){
   try{navigator.geolocation.watchPosition(setPos,()=>{},{enableHighAccuracy:true})}catch(e){}
   window.addEventListener('deviceorientationabsolute',onOri);window.addEventListener('deviceorientation',onOri);
   setTimeout(()=>{if(!S.sens){S.st.compass='bad';renderSensors()}},3000);
-  try{const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false}),v=$('#cam');v.srcObject=st;v.hidden=false;await v.play();S.cam=true;S.st.camera='on'}catch(e){S.st.camera='bad'}
+  try{const v=$('#cam');if(v.srcObject)v.srcObject.getTracks().forEach(t=>t.stop());
+    // ask for the sharpest picture the camera offers; the browser picks the nearest mode it supports
+    const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:3840},height:{ideal:2160},frameRate:{ideal:30}},audio:false});
+    v.srcObject=st;v.hidden=false;await v.play();S.cam=true;S.st.camera='on';camSetup(st.getVideoTracks()[0]);
+  }catch(e){S.st.camera='bad'}
   try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}
   renderSensors();$('#settings').hidden=true;tick();poll();loadSats();
 }
@@ -782,7 +807,7 @@ rc.addEventListener('pointermove',e=>{if(!rp.has(e.pointerId))return;rp.set(e.po
 const rend=e=>{rp.delete(e.pointerId);if(pz&&rp.size<2){pz=null;S.zt=Date.now();save();if(S.mode==='live')poll()}};
 rc.addEventListener('pointerup',rend);rc.addEventListener('pointercancel',rend);
 rc.addEventListener('wheel',e=>{e.preventDefault();S.range=clampR(S.range*(e.deltaY>0?1.15:0.87));updRange();save()},{passive:false});
-const ap=new Map();let az0=null;const setZoom=z=>{S.zoom=Math.max(1,Math.min(5,z));$('#cam').style.transform='scale('+S.zoom+')'};
+const ap=new Map();let az0=null;const setZoom=z=>{S.zoom=Math.max(1,Math.min(CAM.max||5,z));camZoom()};
 ar.addEventListener('pointerdown',e=>{ap.set(e.pointerId,[e.clientX,e.clientY]);if(ap.size===2){drag=null;az0={d:gap(ap),z:S.zoom||1}}});
 ar.addEventListener('pointermove',e=>{if(!ap.has(e.pointerId))return;ap.set(e.pointerId,[e.clientX,e.clientY]);if(az0&&ap.size===2)setZoom(az0.z*gap(ap)/az0.d)});
 const aend=e=>{ap.delete(e.pointerId);if(ap.size<2)az0=null};
