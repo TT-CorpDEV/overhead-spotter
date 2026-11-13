@@ -1,0 +1,262 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Join the Club · Overhead Spotter</title>
+<meta name="description" content="How to join the Overhead Spotter club: what you need, how to join on iPhone or Android, scoring, levels and badges.">
+<meta property="og:type" content="website"><meta property="og:title" content="Join the Overhead Spotter Club">
+<meta property="og:description" content="Point your phone at the sky, catch real aircraft, and climb the leaderboard. Free, no app store.">
+<meta property="og:url" content="%SITE_URL%/club/"><meta property="og:image" content="%SITE_URL%/og.jpg"><meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0a0f2a"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=B612+Mono:wght@400;700&display=swap">
+<style>
+@page{size:Letter;margin:0}
+*{box-sizing:border-box}
+:root{--navy:#0a0f2a;--navy2:#141b3d;--ink:#0d1330;--amber:#ffb020;--gold:#ffd25a;--teal:#33d6c0;--mute:#5b6386;--line:#d9dcea;--paper:#f6f4ee;--pink:#ff5f7e;--violet:#9b7bff}
+html,body{margin:0;background:var(--paper);color:var(--ink);font:400 10.5pt/1.45 Inter,sans-serif}
+.page{width:8.5in;height:11in;position:relative;overflow:hidden;page-break-after:always;background:var(--paper)}
+.page:last-child{page-break-after:auto}
+.mono{font-family:"B612 Mono","DejaVu Sans Mono",monospace;letter-spacing:.06em}
+.wrap{padding:0 .6in}
+/* hero */
+.hero{background:var(--navy);color:#fff;padding-bottom:.2in;position:relative;overflow:hidden}
+.hero svg.sky{position:absolute;inset:0}
+.hero .wrap{position:relative;padding-top:.32in}
+.tag{display:inline-block;font-size:8pt;color:var(--amber);border:1px solid rgba(255,176,32,.5);border-radius:99px;padding:3px 10px}
+h1{font:800 32pt/1 "Inter Display",Inter,sans-serif;margin:.12in 0 .06in;letter-spacing:-.02em}
+h1 em{font-style:normal;color:var(--amber)}
+.sub{font-size:11.5pt;color:#c9cdea;max-width:4.6in;margin:0}
+.ticket-strip{display:flex;gap:28px;margin-top:.15in;font-size:8pt;color:#9aa1c9}
+.ticket-strip b{display:block;color:#fff;font:700 12pt "B612 Mono","DejaVu Sans Mono",monospace;letter-spacing:.04em;margin-top:2px}
+h2{font:800 17pt/1.1 "Inter Display",Inter,sans-serif;margin:0 0 8px;letter-spacing:-.01em}
+h2 .n{font:700 9pt "B612 Mono","DejaVu Sans Mono",monospace;color:var(--amber);background:var(--navy);border-radius:6px;padding:3px 7px;margin-right:8px;vertical-align:3px}
+.lead{color:var(--mute);margin:0 0 12px}
+section{margin-top:.16in}
+.mini>div{display:grid;grid-template-columns:auto 1fr;column-gap:8px;align-items:center}.mini .ic{grid-row:span 2}.mini b{margin-top:0}
+/* boarding passes */
+.passes{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.pass{background:#fff;border:1px solid var(--line);border-radius:14px;display:grid;grid-template-columns:1fr 54px;overflow:hidden}
+.pass .main{padding:12px 14px}
+.pass .stub{background:var(--navy);color:var(--amber);border-left:2px dashed var(--line);display:flex;align-items:center;justify-content:center}
+.pass .stub span{writing-mode:vertical-rl;transform:rotate(180deg);font:700 9pt "B612 Mono","DejaVu Sans Mono",monospace;letter-spacing:.2em}
+.pass .hd{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:8px}
+.pass .hd b{font:800 13pt Inter}
+.pass .hd span{font-size:7.5pt;color:var(--mute)}
+.pass ol{margin:0;padding-left:18px}
+.pass li{margin:0 0 4px;font-size:9.6pt}
+.pass .note{font-size:8.5pt;background:#fff6df;border-radius:8px;padding:6px 8px;margin-top:6px}
+.need{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:4px}
+.need>div{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 11px}
+.need .ic{font-size:15pt;line-height:1}
+.need b{display:block;margin-top:4px}
+.need span{font-size:8.2pt;line-height:1.35;color:var(--mute)}
+.no{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.no span{font-size:8.5pt;background:#e9ebf4;border-radius:99px;padding:3px 10px;text-decoration:line-through;color:var(--mute)}
+.no span.yes{background:var(--navy);color:var(--gold);text-decoration:none}
+/* page 2 */
+.band{background:var(--navy);color:#fff;padding:.32in 0 .26in}
+.band h2{color:#fff}
+.band .lead{color:#b9bfe2}
+.tiers{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.card{border-radius:12px;padding:10px 12px;color:var(--navy);position:relative;overflow:hidden}
+.card .pts{font:800 26pt/1 "Inter Display",Inter;margin:4px 0 2px}
+.card .pts small{font-size:9pt;font-weight:700}
+.card .nm{font:700 8pt "B612 Mono","DejaVu Sans Mono",monospace;letter-spacing:.14em}
+.card p{margin:4px 0 0;font-size:8.3pt;line-height:1.35}
+.c1{background:#dfe3f3}.c2{background:#a9f0e4}.c3{background:#ffd27a}.c4{background:linear-gradient(135deg,#ff8fb0,#b49bff)}
+.levels{display:flex;gap:0;margin-top:14px;align-items:stretch}
+.levels div{flex:1;text-align:center;padding:6px 4px;border-top:3px solid var(--amber);font-size:8pt;color:#b9bfe2}
+.levels div b{display:block;color:#fff;font:700 11pt "B612 Mono","DejaVu Sans Mono",monospace}
+.badges{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.badge{display:flex;gap:8px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:10px;padding:7px 9px}
+.badge .medal{flex:0 0 28px;height:28px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff3c4,var(--gold) 45%,#d99400);display:grid;place-items:center;font-size:12pt;box-shadow:0 0 0 2px #fff,0 0 0 3px #e7c35a}
+.badge b{display:block;font-size:8.6pt;line-height:1.2}
+.badge span{font-size:7.6pt;color:var(--mute);line-height:1.2;display:block}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.rules{margin:0;padding:0;list-style:none}
+.rules li{display:grid;grid-template-columns:22px 1fr;gap:6px;margin-bottom:7px;font-size:9.4pt}
+.rules li::before{content:"✈";color:var(--amber);font-size:11pt}
+.faq b{display:block;font-size:9.4pt}
+.faq p{margin:0 0 8px;font-size:9pt;color:#3a4064}
+.foot{position:absolute;left:0;right:0;bottom:0;background:var(--navy);color:#9aa1c9;font-size:8pt;padding:10px .6in;display:flex;justify-content:space-between}
+.foot b{color:var(--amber)}
+.url{font:700 12pt "B612 Mono","DejaVu Sans Mono",monospace;color:var(--amber)}
+
+/* ---- web version ---- */
+@media screen{
+html,body{background:#e9e6dc}
+.page{height:auto;max-width:8.5in;width:100%;margin:0 auto;padding-bottom:0}
+.page:first-of-type{margin-top:0}
+.foot{position:static;margin-top:.3in}
+.page+.page{margin-top:14px}
+.topbar{position:sticky;top:0;z-index:5;background:rgba(10,15,42,.96);backdrop-filter:blur(6px);color:#fff;padding:10px max(16px,env(safe-area-inset-left)) 10px max(16px,env(safe-area-inset-right));padding-top:max(10px,env(safe-area-inset-top));display:flex;align-items:center;gap:10px;justify-content:space-between}
+.topbar .brand{display:flex;align-items:center;gap:8px;font:700 11pt Inter;color:#fff;text-decoration:none;min-width:0}
+.topbar .brand img{width:26px;height:26px;border-radius:7px}
+.topbar .acts{display:flex;gap:8px;flex-shrink:0}
+.btn{display:inline-flex;align-items:center;gap:6px;font:700 10pt Inter;border-radius:99px;padding:8px 14px;text-decoration:none;white-space:nowrap}
+.btn.dl{background:var(--amber);color:var(--navy)}
+.btn.app{border:1px solid rgba(255,255,255,.35);color:#fff}
+.cta{display:flex;flex-wrap:wrap;gap:10px;margin-top:.2in}
+.cta .btn{padding:11px 18px;font-size:11pt}
+.wrap{padding-left:max(16px,.6in);padding-right:max(16px,.6in)}
+}
+@media screen and (max-width:720px){
+.wrap{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+.hero svg.sky{opacity:.35}
+h1{font-size:30pt}
+.sub{max-width:none}
+.ticket-strip{flex-wrap:wrap;gap:14px 24px}
+.need{grid-template-columns:1fr 1fr}
+.passes,.cols{grid-template-columns:1fr}
+.tiers{grid-template-columns:1fr 1fr}
+.badges{grid-template-columns:1fr 1fr}
+.badge[style]{grid-column:span 2!important}
+.levels{flex-wrap:wrap}.levels div{flex:1 0 33%}
+.foot{flex-direction:column;gap:4px;padding-left:16px;padding-right:16px}
+.topbar .btn.app{display:none}
+}
+@media print{.topbar,.cta{display:none}}
+</style></head><body>
+<div class="topbar"><a class="brand" href="/"><img src="/apple-touch-icon.png" alt="">Overhead Spotter</a><div class="acts"><a class="btn app" href="/">Open the app</a><a class="btn dl" href="/club/Overhead-Spotter-Club-Guide.pdf" download="Overhead-Spotter-Club-Guide.pdf">⬇ Download PDF</a></div></div>
+
+<!-- PAGE 1 -->
+<div class="page">
+  <div class="hero">
+    <svg class="sky" viewBox="0 0 816 394" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs><radialGradient id="g" cx="78%" cy="40%" r="45%"><stop offset="0" stop-color="#33d6c0" stop-opacity=".22"/><stop offset="1" stop-color="#33d6c0" stop-opacity="0"/></radialGradient>
+      <linearGradient id="sw" x1="0" x2="1"><stop offset="0" stop-color="#33d6c0" stop-opacity="0"/><stop offset="1" stop-color="#33d6c0" stop-opacity=".35"/></linearGradient></defs>
+      <rect width="816" height="394" fill="url(#g)"/>
+      <g fill="#fff" opacity=".55"><circle cx="40" cy="30" r="1"/><circle cx="120" cy="80" r=".8"/><circle cx="260" cy="24" r="1.2"/><circle cx="330" cy="120" r=".7"/><circle cx="420" cy="40" r="1"/><circle cx="470" cy="300" r=".8"/><circle cx="90" cy="340" r="1"/><circle cx="380" cy="360" r=".7"/><circle cx="520" cy="18" r=".9"/><circle cx="790" cy="370" r="1"/></g>
+      <g transform="translate(640 160)" fill="none" stroke="#33d6c0">
+        <circle r="150" stroke-opacity=".35"/><circle r="100" stroke-opacity=".25" stroke-dasharray="3 6"/><circle r="50" stroke-opacity=".25"/>
+        <path d="M0 0 L150 0 A150 150 0 0 0 106 -106 Z" fill="url(#sw)" stroke="none"/>
+        <line x1="0" y1="0" x2="150" y2="0" stroke-opacity=".9" stroke-width="2"/>
+        <line x1="-150" y1="0" x2="150" y2="0" stroke-opacity=".12"/><line x1="0" y1="-150" x2="0" y2="150" stroke-opacity=".12"/>
+      </g>
+      <g transform="translate(700 105) rotate(40)"><path d="M0-14 L3-4 L14 2 L14 5 L3 2 L2 10 L6 13 L6 15 L0 13 L-6 15 L-6 13 L-2 10 L-3 2 L-14 5 L-14 2 L-3-4 Z" fill="#ffd25a"/></g>
+      <circle cx="700" cy="105" r="22" fill="none" stroke="#ffd25a" stroke-opacity=".6"/>
+      <g transform="translate(575 215) rotate(-70)"><path d="M0-10 L2-3 L10 1 L10 3 L2 1 L1 7 L4 9 L4 10 L0 9 L-4 10 L-4 9 L-1 7 L-2 1 L-10 3 L-10 1 L-2-3 Z" fill="#33d6c0"/></g>
+      <g transform="translate(690 250) rotate(160)"><path d="M0-10 L2-3 L10 1 L10 3 L2 1 L1 7 L4 9 L4 10 L0 9 L-4 10 L-4 9 L-1 7 L-2 1 L-10 3 L-10 1 L-2-3 Z" fill="#9b7bff"/></g>
+      <circle cx="640" cy="160" r="4" fill="#fff"/>
+    </svg>
+    <div class="wrap">
+      <span class="tag mono">CLEARED FOR TAKEOFF · CLUB BRIEFING</span>
+      <h1>Join the<br><em>Overhead Spotter</em><br>Club</h1>
+      <p class="sub">Point your phone at the sky, catch real planes, helicopters and satellites, and climb the leaderboard against your friends.</p>
+      <div class="ticket-strip mono">
+        <div>GATE<b>spotter.ttcorp.ai</b></div>
+        <div>FARE<b>$0.00</b></div>
+        <div>BOARDING TIME<b>~1 MIN</b></div>
+      </div>
+      <div class="cta"><a class="btn dl" href="/club/Overhead-Spotter-Club-Guide.pdf" download="Overhead-Spotter-Club-Guide.pdf">⬇ Download the PDF</a><a class="btn app" href="/">Open the app ✈</a></div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <section>
+      <h2><span class="n">01</span>What you need to board</h2>
+      <div class="need">
+        <div><div class="ic">📱</div><b>A phone</b><span>iPhone with Safari or Android with Chrome</span></div>
+        <div><div class="ic">🎟️</div><b>The invite</b><span>The link and code your club captain texted you</span></div>
+        <div><div class="ic">🏷️</div><b>A call sign</b><span>Any name for the leaderboard. Make it a good one.</span></div>
+        <div><div class="ic">🧭</div><b>Permissions</b><span>Location, motion and camera, so the app knows where you're aiming</span></div>
+      </div>
+      <div class="no"><span>App Store</span><span>Account</span><span>Email</span><span>Password</span><span>Credit card</span><span class="yes">Just your phone and a name</span></div>
+    </section>
+
+    <section>
+      <h2><span class="n">02</span>Pick your boarding pass</h2>
+      <div class="passes">
+        <div class="pass"><div class="main">
+          <div class="hd"><b>iPhone</b><span class="mono">SAFARI · 3 STEPS</span></div>
+          <ol>
+            <li>Open the invite link in <b>Safari</b>.</li>
+            <li>Tap <b>Share</b>, then <b>Add to Home Screen</b>. Open the app from that new icon.</li>
+            <li>Go to <b>Hangar</b>, tap <b>Join with a code</b>, enter the code from the text and your name.</li>
+          </ol>
+          <div class="note"><b>Why the extra step?</b> iPhone keeps home-screen apps separate from Safari. Join from the icon, or your progress stays stuck in the browser.</div>
+        </div><div class="stub"><span>SEAT 1A</span></div></div>
+
+        <div class="pass"><div class="main">
+          <div class="hd"><b>Android</b><span class="mono">CHROME · 2 STEPS</span></div>
+          <ol>
+            <li>Tap the invite link. It opens in <b>Chrome</b> and asks for your name. You're in.</li>
+            <li>Optional but recommended: tap <b>Install app</b> (or Chrome menu, then <b>Add to Home screen</b>) so it opens full screen.</li>
+          </ol>
+          <div class="note"><b>First launch:</b> allow location, motion and camera. Alerts are optional and handy for rare flyovers.</div>
+        </div><div class="stub"><span>SEAT 1F</span></div></div>
+      </div>
+    </section>
+
+    <section>
+      <h2><span class="n">03</span>How to make a catch <span style="font:500 10pt Inter;color:var(--mute)">Hear a plane? Here's the move.</span></h2>
+            <div class="need mini">
+        <div><div class="ic">☝️</div><b>Point</b><span>Aim your phone at it in Point view</span></div>
+        <div><div class="ic">🎯</div><b>Lock</b><span>Hold the ring on it until it locks on</span></div>
+        <div><div class="ic">📒</div><b>Log it</b><span>Tap Log it to bank the points</span></div>
+        <div><div class="ic">🏆</div><b>Brag</b><span>Watch yourself climb in Hangar</span></div>
+      </div>
+    </section>
+  </div>
+  <div class="foot"><span>Overhead Spotter · free, no app store</span><span><b>Scoring and badges below</b> ✈</span></div>
+</div>
+
+<!-- PAGE 2 -->
+<div class="page">
+  <div class="band"><div class="wrap">
+    <h2><span class="n" style="background:var(--amber);color:var(--navy)">04</span>The scoreboard</h2>
+    <p class="lead">Every catch has a rarity. The rarer it is, the more it's worth.</p>
+    <div class="tiers">
+      <div class="card c1"><div class="nm">COMMON</div><div class="pts">10 <small>PTS</small></div><p>Everyday airliners and small planes. The bread and butter.</p></div>
+      <div class="card c2"><div class="nm">UNCOMMON</div><div class="pts">25 <small>PTS</small></div><p>Satellites, ships and less common aircraft types.</p></div>
+      <div class="card c3"><div class="nm">RARE</div><div class="pts">60 <small>PTS</small></div><p>Military aircraft, rare types and the International Space Station.</p></div>
+      <div class="card c4"><div class="nm">EPIC</div><div class="pts">150 <small>PTS</small></div><p>Unicorns: the rarest airframes and aircraft squawking an emergency.</p></div>
+    </div>
+    <div class="levels">
+      <div><b>LV 1</b>0 pts</div><div><b>LV 2</b>50 pts</div><div><b>LV 3</b>200 pts</div><div><b>LV 4</b>450 pts</div><div><b>LV 5</b>800 pts</div><div><b>LV 6+</b>keep going…</div>
+    </div>
+  </div></div>
+
+  <div class="wrap">
+    <section style="margin-top:.24in">
+      <h2><span class="n">05</span>Badges to hunt</h2>
+      <div class="badges">
+        <div class="badge"><div class="medal">✈</div><div><b>First contact</b><span>Log your first catch</span></div></div>
+        <div class="badge"><div class="medal">📚</div><div><b>Type rated</b><span>5 different aircraft types</span></div></div>
+        <div class="badge"><div class="medal">📒</div><div><b>Full logbook page</b><span>Log 12 catches</span></div></div>
+        <div class="badge"><div class="medal">🛫</div><div><b>Heavy metal</b><span>Log a wide-body jet</span></div></div>
+        <div class="badge"><div class="medal">🚁</div><div><b>Rotorhead</b><span>Log a helicopter</span></div></div>
+        <div class="badge"><div class="medal">🛰️</div><div><b>Orbital</b><span>Log a satellite</span></div></div>
+        <div class="badge"><div class="medal">🚀</div><div><b>Station keeper</b><span>Log the space station</span></div></div>
+        <div class="badge"><div class="medal">💎</div><div><b>Rare find</b><span>Log a Rare or better</span></div></div>
+        <div class="badge"><div class="medal">🦄</div><div><b>Unicorn</b><span>Log an Epic</span></div></div>
+        <div class="badge"><div class="medal">⛰️</div><div><b>Flight level 400</b><span>A plane above 40,000 ft</span></div></div>
+        <div class="badge"><div class="medal">👋</div><div><b>Close pass</b><span>Aircraft within 3 miles</span></div></div>
+        <div class="badge"><div class="medal">🎖️</div><div><b>Guard duty</b><span>Log a military aircraft</span></div></div>
+        <div class="badge" style="grid-column:span 4;justify-content:center"><div class="medal">🌗</div><div><b>Day and night</b><span>Log both the Sun and the Moon. Yes, really.</span></div></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="cols">
+        <div>
+          <h2><span class="n">06</span>House rules</h2>
+          <ul class="rules">
+            <li><span><b>No cheating possible.</b> The server counts your points from your logbook, so nobody can type in a fake score.</span></li>
+            <li><span><b>Friends see only</b> your name, points, level, badges and best catch. Never your location, contacts or email.</span></li>
+            <li><span><b>Up to 50 pilots</b> in the club. The captain starts it and sends the invites.</span></li>
+            <li><span><b>Eyes up, not on the road.</b> Spot from the passenger seat, the porch or the park.</span></li>
+          </ul>
+        </div>
+        <div class="faq">
+          <h2><span class="n">07</span>Quick FAQ</h2>
+          <b>I changed my mind about my name.</b><p>Rename yourself anytime in Hangar.</p>
+          <b>I got a new phone / cleared my browser.</b><p>Your spot lives on your phone. Rejoin with the code and you start fresh at zero, so don't delete the app.</p>
+          <b>The plane isn't lining up.</b><p>Open Settings and run the compass alignment, then wave the phone in a figure 8.</p>
+          <b>Does it cost anything?</b><p>Nope. Free, no ads, no store.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+  <div class="foot"><span>Ask your club captain for the invite code · <span class="url">spotter.ttcorp.ai</span></span><span>Blue skies ✈ <b>See you on the leaderboard</b></span></div>
+</div>
+</body></html>
