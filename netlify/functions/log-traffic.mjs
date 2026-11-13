@@ -12,6 +12,10 @@ const KEEP_TRACK = 3 * 60 * 60 * 1000; // positions are kept for 3 hours
 const EMERGENCY = new Set(["7500", "7600", "7700"]);
 const RARE = new Set(["A388", "A124", "A225", "A3ST", "BLCF", "B744", "B748", "B742", "MD11", "DC10", "CONC", "C17", "C5M", "C130", "C30J", "K35R", "KC46", "B52", "B1", "B2", "E3TF", "E6", "P8", "U2", "F15", "F16", "F18", "F22", "F35", "A10", "V22", "H47", "H64", "GLF6", "GLEX", "GL7T"]);
 
+// Fire season: air tankers, scoopers and fire helicopters, by type or by who operates them.
+const FIRE_T = new Set(["DC10", "MD87", "B461", "B462", "B463", "RJ85", "L188", "P3", "CL2T", "CL41", "AT8T", "S64", "KMAX"]);
+const FIRE_OWN = /10 TANKER|AERO AIR|NEPTUNE AVIATION|ERICKSON (INC|AERO|AIR)|COULSON|AERO-?FLITE|AIR SPRAY|CONAIR|FOREST SERVICE|FORESTRY|BUREAU OF LAND MANAGEMENT|DEPT OF NATURAL RESOURCES|DEPARTMENT OF NATURAL RESOURCES|CAL FIRE|FIRE PROTECTION|BRIDGER AEROSPACE/;
+
 const hourOf = (t) => Number(new Intl.DateTimeFormat("en-US", { timeZone: TZ, hour: "numeric", hourCycle: "h23" }).format(t)) % 24;
 const dayOf = (t) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(t);
 
@@ -68,7 +72,7 @@ function update(db, tracks, list, now) {
     const emg = EMERGENCY.has(a.squawk) && now - (db.emg[a.hex] || 0) > GAP;
     if (emg) db.emg[a.hex] = now;
     if (fresh || emg) {
-      events.push({ hex: a.hex, reg: a.r || "", type: a.t || "", cs: (a.flight || "").trim(), mil: ((a.dbFlags || 0) & 1) === 1, rare: RARE.has(a.t), emg, sq: a.squawk || "" });
+      events.push({ hex: a.hex, reg: a.r || "", type: a.t || "", cs: (a.flight || "").trim(), mil: ((a.dbFlags || 0) & 1) === 1, rare: RARE.has(a.t), fire: FIRE_T.has(a.t) || FIRE_OWN.test(String(a.ownOp || "").toUpperCase()), emg, sq: a.squawk || "" });
     }
   }
   for (const k of Object.keys(tracks)) {
@@ -100,9 +104,9 @@ async function notify(store, events) {
     const s = p.subs[id];
     const watch = new Set((s.watch || []).map((w) => String(w).toLowerCase()));
     const watched = (ev) => watch.has(ev.hex) || (ev.reg && watch.has(ev.reg.toLowerCase()));
-    const hits = events.filter((ev) => (s.emg && ev.emg) || watched(ev) || (s.mil && ev.mil) || (s.rare && ev.rare));
+    const hits = events.filter((ev) => (s.emg && ev.emg) || watched(ev) || (s.fire !== false && ev.fire) || (s.mil && ev.mil) || (s.rare && ev.rare));
     if (!hits.length) continue;
-    const label = (ev) => (ev.emg ? "Emergency " + ev.sq + ": " : watched(ev) ? "Watchlist: " : ev.mil ? "Military: " : "Rare: ") + (ev.cs || ev.reg || ev.hex.toUpperCase()) + (ev.type ? " (" + ev.type + ")" : "");
+    const label = (ev) => (ev.emg ? "Emergency " + ev.sq + ": " : watched(ev) ? "Watchlist: " : ev.fire ? "Fire aircraft: " : ev.mil ? "Military: " : "Rare: ") + (ev.cs || ev.reg || ev.hex.toUpperCase()) + (ev.type ? " (" + ev.type + ")" : "");
     const body = hits.slice(0, 3).map(label).join("\n") + (hits.length > 3 ? "\n+" + (hits.length - 3) + " more" : "");
     try {
       await webpush.sendNotification(s.sub, JSON.stringify({ title: "Overhead now", body, tag: "overhead-" + hits[0].hex }), { TTL: 600 });
