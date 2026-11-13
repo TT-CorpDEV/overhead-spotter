@@ -3,7 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 
 // Friends leaderboard. One club per site, joined with an invite code.
 //   POST /api/club/create  {name}                       start the club (only once)
-//   POST /api/club/join    {code, name}                 join with the invite code
+//   POST /api/club/join    {name}                       join the club (open to anyone)
 //   POST /api/club/sync    {code, pid, token, log, badges, name?}  upload your catches
 //   GET  /api/club/board?code=                          the ranked board
 //   POST /api/club/leave   {code, pid, token}           leave the club
@@ -76,7 +76,11 @@ export async function handle(req, store) {
       code = CODE;
       await store.setJSON("meta", { code, created: Date.now() });
     } else {
-      if (!ok(body.code)) return json({ error: "That invite code is not valid." }, 403);
+      // Open club: anyone with the app can join, no invite code needed.
+      if (!meta) {
+        meta = { code: CODE, created: Date.now() };
+        await store.setJSON("meta", meta);
+      }
       code = meta.code;
       const { blobs } = await store.list({ prefix: "p/" });
       if (blobs.length >= MAX_PLAYERS) return json({ error: "The club is full." }, 409);
