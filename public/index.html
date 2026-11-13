@@ -1016,7 +1016,7 @@ function halo(x,px,py,r){
   for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?s*.45:s;x.lineTo(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr)}
   x.closePath();x.stroke();x.fill();x.restore();
 }
-const SAID={},TRK={},TRKT={},HOSTED=location.protocol==='https:'&&/netlify\.app$/.test(location.hostname);
+const SAID={},TRK={},TRKT={},HOSTED=location.protocol==='https:'&&/(netlify\.app|(^|\.)ttcorp\.ai)$/.test(location.hostname);
 function announce(o){if(SAID[o.id])return;SAID[o.id]=1;addAlert(o.emg?'emg':'watch',o.cs||o.reg,o.id.slice(1),o.emg?o.sq:'');toast(o.emg?'Emergency squawk '+o.sq+': '+o.cs:'On your watchlist: '+o.cs+' is nearby',o.id);try{navigator.vibrate&&navigator.vibrate([60,40,60])}catch(e){}}
 /* ---------- alerts list ---------- */
 let ALERTS=[];try{ALERTS=JSON.parse(localStorage.getItem('overhead.alerts')||'[]')||[]}catch(e){}
