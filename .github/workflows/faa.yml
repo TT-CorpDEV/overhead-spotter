@@ -1,0 +1,30 @@
+# Nightly: rebuild the owner lookup from the FAA registry and publish it to the faa-data branch.
+# The app reads it from raw.githubusercontent.com, so this never triggers a Netlify deploy.
+name: FAA registry
+on:
+  schedule:
+    - cron: "37 10 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the FAA registry
+        run: |
+          curl -fsSL --retry 4 --retry-delay 20 -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36" -o reg.zip https://registry.faa.gov/database/ReleasableAircraft.zip
+          unzip -o -q reg.zip -d reg
+      - name: Build the lookup
+        run: python3 .github/faa_build.py reg out
+      - name: Publish to the faa-data branch
+        run: |
+          cd out
+          git init -q -b faa-data
+          git config user.name "faa-registry-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "FAA registry $(date -u +%F) [skip netlify]"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" faa-data
