@@ -18,6 +18,10 @@
 }
 html,body{height:100%}
 body{background:var(--sky-hi);color:var(--ink);font-family:var(--f-text);font-size:14px;line-height:1.4;overflow:hidden}
+/* no text selection or tap-to-search on app UI; typing fields and the invite code stay selectable */
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+input,textarea,select,[contenteditable]{-webkit-user-select:text;user-select:text}
+.code{-webkit-user-select:all;-webkit-touch-callout:default}
 *{box-sizing:border-box}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
 :focus-visible{outline:2px solid var(--lock);outline-offset:2px}
