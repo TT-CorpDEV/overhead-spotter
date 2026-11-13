@@ -117,6 +117,7 @@ h2:first-child{margin-top:0}
 .bars i{flex:1;background:var(--amber);border-radius:2px 2px 0 0;min-height:2px}
 .axis{display:flex;justify-content:space-between;font:400 10px var(--f-data);color:var(--mute);margin-top:4px}
 .wstar{color:var(--gold)}
+.fsep{flex-basis:100%;height:0}
 .wrow{display:flex;gap:8px;align-items:center}
 .rank{font:700 13px var(--f-data);color:var(--mute);width:22px;text-align:center;flex:none}
 .item.me{border-color:var(--gold)}
@@ -305,11 +306,11 @@ const BADGES=[
 ];
 
 const S={mode:'wait',obs:{lat:45.52,lon:-122.68,alt:15},view:'point',look:{az:70,el:20},sens:false,basis:null,cam:false,
-  objs:[],sel:null,lock:null,cand:null,detail:null,filters:{plane:1,heli:1,sat:1,ship:1,sky:1},range:25,northUp:false,fov:60,
+  objs:[],sel:null,lock:null,cand:null,detail:null,filters:{plane:1,heli:1,sat:1,ship:1,sky:1},cats:{com:1,pvt:1,gov:1},range:25,northUp:false,fov:60,
   live:{},sats:[],src:0,st:{gps:'off',compass:'off',camera:'off',feed:'off',sats:'off'},down:false,absSeen:false,routes:{}};
 let LOG=[];
-try{const j=JSON.parse(localStorage.getItem('overhead.v1')||'{}');LOG=j.log||[];if(j.fov)S.fov=j.fov;if(j.range)S.range=j.range;S.path=!!j.path;S.azOff=+j.az||0;S.elOff=+j.el||0}catch(e){}
-const save=()=>{try{localStorage.setItem('overhead.v1',JSON.stringify({log:LOG,fov:S.fov,range:S.range,path:S.path,az:S.azOff||0,el:S.elOff||0}))}catch(e){}};
+try{const j=JSON.parse(localStorage.getItem('overhead.v1')||'{}');LOG=j.log||[];if(j.fov)S.fov=j.fov;if(j.range)S.range=j.range;S.path=!!j.path;S.azOff=+j.az||0;S.elOff=+j.el||0;if(j.cats)Object.assign(S.cats,j.cats)}catch(e){}
+const save=()=>{try{localStorage.setItem('overhead.v1',JSON.stringify({log:LOG,fov:S.fov,range:S.range,path:S.path,az:S.azOff||0,el:S.elOff||0,cats:S.cats}))}catch(e){}};
 
 /* ---------- geometry ---------- */
 const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
@@ -391,7 +392,7 @@ function airHtml(o){
   const val=valueOf(o),r=(a,b)=>b?'<dt>'+a+'</dt><dd>'+esc(b)+'</dd>':'';
   let h='<h2>This aircraft</h2>';
   if(db.url_photo_thumbnail&&!priv)h+='<a href="'+esc(db.url_photo||db.url_photo_thumbnail)+'" target="_blank" rel="noopener"><img class="ph" src="'+esc(db.url_photo_thumbnail)+'" alt="Photo of '+esc(o.reg||o.cs)+'" loading="lazy"></a><p class="note" style="margin:0 0 10px">Photo: airport-data.com</p>';
-  h+='<dl class="spec">'+r('Tail number',o.reg)+r('ICAO hex',okHex?hex.toUpperCase():'')+r('Model',model)+r('Built',yr?yr+' ('+age+(age===1?' year':' years')+' old)':'')+r('Registered owner',owner)+r('Registered in',priv?'':db.registered_owner_country_name)+r('Flown by',o.op&&o.op!==owner&&live?o.op:'')+r('Seen near you',seen)+r('Area log, 24/7',area)+r('Rough value',val)+'</dl>';
+  h+='<dl class="spec">'+r('Tail number',o.reg)+r('ICAO hex',okHex?hex.toUpperCase():'')+r('Model',model)+r('Category',CATN[o.cat]||'')+r('Built',yr?yr+' ('+age+(age===1?' year':' years')+' old)':'')+r('Registered owner',owner)+r('Registered in',priv?'':db.registered_owner_country_name)+r('Flown by',o.op&&o.op!==owner&&live?o.op:'')+r('Seen near you',seen)+r('Area log, 24/7',area)+r('Rough value',val)+'</dl>';
   if(val&&!MILV[o.type])h+='<p class="note">Value is a model estimate from type and age, not an appraisal. Condition, engine time and avionics can move it a lot.</p>';
   if(live&&okHex&&!priv){const reg=o.reg||'';h+='<div class="links">'+(/^N[0-9]/.test(reg)?'<a href="https://registry.faa.gov/AircraftInquiry/Search/NNumberResult?nNumberTxt='+encodeURIComponent(reg)+'" target="_blank" rel="noopener">FAA record</a>':'')+'<a href="https://globe.adsbexchange.com/?icao='+hex+'" target="_blank" rel="noopener">Flight history</a>'+(reg?'<a href="https://www.flightaware.com/live/flight/'+encodeURIComponent(reg)+'" target="_blank" rel="noopener">FlightAware</a>':'')+'</div>'}
   return h;
@@ -434,7 +435,7 @@ function tick(){
   if(S.alignAt&&now>S.alignAt)doAlign();
   if(S.mode==='live'){for(const o of list)if(o.id[0]==='a'&&o.g<40234)noteSeen(o.id.slice(1),now);if(seenDirty&&now-seenT>20000)saveSeen(now)}
   S.all=list.filter(o=>!(o.kind==='sat'||o.kind==='sky')||o.el>0);
-  S.objs=S.all.filter(o=>S.filters[o.kind]&&(S.showGnd||!o.gnd));
+  S.objs=S.all.filter(o=>S.filters[o.kind]&&(S.showGnd||!o.gnd)&&(!o.cat||o.w||S.cats[o.cat]));
   if(S.lock&&!find(S.lock)){S.lock=null}
   if(S.sel&&!find(S.sel)){S.sel=null}
   updCard();updRare();
@@ -612,7 +613,7 @@ function updRare(){
 }
 let toastT;function toast(m,id){const t=$('#toast');$('#toast-t').textContent=m;t.dataset.id=id||'';t.classList.toggle('tap',!!id);$('#toast-go').hidden=!id;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,id?7000:3800)}
 function setView(v){S.view=v;for(const n of['point','radar','map','list','hangar'])$('#v-'+n).hidden=n!==v;$$('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.view===v));if(v==='map')openMap();if(v==='list')renderList();if(v==='hangar'){renderHangar();clubSync(true)}}
-function renderFilters(){$('#mfilters').innerHTML=$('#filters').innerHTML=Object.keys(KIND).map(k=>'<button data-filter="'+k+'" aria-pressed="'+!!S.filters[k]+'"><i class="dot" style="background:var(--k-'+k+')"></i>'+KIND[k]+(k==='sky'?'':'s')+'</button>').join('')+'<button data-act="gnd" aria-pressed="'+!!S.showGnd+'">Parked aircraft</button>'}
+function renderFilters(){$('#mfilters').innerHTML=$('#filters').innerHTML=Object.keys(KIND).map(k=>'<button data-filter="'+k+'" aria-pressed="'+!!S.filters[k]+'"><i class="dot" style="background:var(--k-'+k+')"></i>'+KIND[k]+(k==='sky'?'':'s')+'</button>').join('')+'<button data-act="gnd" aria-pressed="'+!!S.showGnd+'">Parked aircraft</button><span class="fsep" aria-hidden="true"></span>'+Object.keys(CATN).map(k=>'<button data-cat="'+k+'" aria-pressed="'+!!S.cats[k]+'">'+CATN[k]+'</button>').join('')}
 function renderList(){
   const qq=($('#q').value||'').toUpperCase().replace(/\s+/g,''),l=S.objs.filter(o=>!qq||[o.cs,o.reg,o.type,o.op,typeName(o)].join('|').toUpperCase().replace(/\s+/g,'').includes(qq)).sort((a,b)=>(b.w|0)-(a.w|0)||(isFinite(a.dist)?a.dist:9e12)-(isFinite(b.dist)?b.dist:9e12));
   $('#list').innerHTML=l.length?l.map(o=>'<button class="item" data-act="detail" data-id="'+esc(o.id)+'"><i class="dot" style="background:var(--k-'+o.kind+')"></i><span class="mid"><b>'+(o.w?'<span class="wstar" aria-label="On your watchlist">★</span> ':'')+esc(o.cs)+(logged(o)?' ✓':'')+'</b><span>'+esc(typeName(o))+(o.op?' · '+esc(o.op):'')+'</span></span><span class="end"><b>'+(isFinite(o.dist)?fDst(o):'—')+'</b>'+compass(o.az)+' · '+(o.kind==='plane'||o.kind==='heli'?fAlt(o):'<span class="t'+o.tier+'">'+TIER[o.tier]+'</span>')+'</span></button>').join('')
@@ -746,11 +747,23 @@ async function goLive(){
   renderSensors();$('#settings').hidden=true;tick();poll();loadSats();
 }
 const opOf=cs=>AIRLINE[(cs||'').slice(0,3)]||'';
+// Sort each aircraft into Government, Commercial or Private from its military flag,
+// its callsign and its registered owner. Anything not clearly the first two counts as private.
+const CATN={com:'Commercial',pvt:'Private',gov:'Government'};
+const GOV_CS=/^(RCH|REACH|CNV|PAT|SAM|EXEC|SPAR|NAVY|ARMY|NOAA|NASA|GUARD|PEDRO|EVAC|KING|BOXER)\d|^C\d{3,4}$/;
+const GOV_OWN=/UNITED STATES|\bU ?S (ARMY|NAVY|AIR FORCE|COAST GUARD|CUSTOMS|MARSHALS|FOREST)|DEPARTMENT OF|\bDEPT\b|\bSTATE OF\b|\bCOUNTY\b|\bCITY OF\b|POLICE|SHERIFF|NATIONAL GUARD|GOVERNMENT|\bNASA\b|\bNOAA\b|\bFAA\b|BUREAU OF|HIGHWAY PATROL|STATE PATROL|FIRE (DEPT|DISTRICT|PROTECTION)|COAST GUARD|AIR FORCE|MARINE CORPS/;
+const COM_OWN=/AIR ?LINES|AIRWAYS|CARGO|FEDERAL EXPRESS|PARCEL SERVICE|AIR METHODS|LIFE ?FLIGHT|MEDICAL|AMBULANCE|CHARTER|NETJETS|FLEXJET|AIR TAXI|AVIATION SERVICES/;
+function catOf(fl,own,flags){
+  own=String(own||'').toUpperCase();
+  if((flags&1)||GOV_CS.test(fl)||GOV_OWN.test(own))return'gov';
+  if(/^[A-Z]{3}\d/.test(fl)||COM_OWN.test(own))return'com';
+  return'pvt';
+}
 function readsb(j){if(!j.ac&&!j.aircraft)throw 0;return(j.ac||j.aircraft).filter(a=>a.lat!=null&&a.lon!=null).map(a=>{const cs=(a.flight||a.r||a.hex||'').trim(),t=a.t||'';
-  return{id:'a'+a.hex,gnd:a.alt_baro==='ground',age:Math.min(30,Math.max(0,+(a.seen_pos!=null?a.seen_pos:a.seen)||0)),kind:(a.category==='A7'||HELI.has(t))?'heli':'plane',cs:cs.toUpperCase(),reg:a.r||'',type:t,op:opOf(cs)||((a.dbFlags&12)?'':a.ownOp)||'',own:(a.dbFlags&12)?'':a.ownOp||'',desc:a.desc||'',year:+a.year||0,flags:a.dbFlags||0,mil:(a.dbFlags&1)?1:0,emg:a.squawk==='7500'||a.squawk==='7600'||a.squawk==='7700',
+  return{id:'a'+a.hex,gnd:a.alt_baro==='ground',age:Math.min(30,Math.max(0,+(a.seen_pos!=null?a.seen_pos:a.seen)||0)),kind:(a.category==='A7'||HELI.has(t))?'heli':'plane',cs:cs.toUpperCase(),reg:a.r||'',type:t,op:opOf(cs)||((a.dbFlags&12)?'':a.ownOp)||'',own:(a.dbFlags&12)?'':a.ownOp||'',desc:a.desc||'',year:+a.year||0,flags:a.dbFlags||0,mil:(a.dbFlags&1)?1:0,cat:catOf((a.flight||'').trim().toUpperCase(),a.ownOp||'',a.dbFlags||0),emg:a.squawk==='7500'||a.squawk==='7600'||a.squawk==='7700',
     lat0:a.lat,lon0:a.lon,alt0:(a.alt_baro==='ground'?0:(a.alt_baro??a.alt_geom??0))*0.3048,gs:a.gs||0,trk:a.track??a.true_heading??0,vr:a.baro_rate??a.geom_rate??0,sq:a.squawk||''}})}
 function osky(j){if(!('states' in j))throw 0;return(j.states||[]).filter(s=>s[5]!=null&&s[6]!=null).map(s=>{const cs=(s[1]||s[0]||'').trim();
-  return{id:'a'+s[0],gnd:!!s[8],kind:s[17]===8?'heli':'plane',cs:cs.toUpperCase(),reg:'',type:'',op:opOf(cs),lat0:s[6],lon0:s[5],alt0:s[8]?0:(s[7]??s[13]??0),gs:(s[9]||0)*1.944,trk:s[10]||0,vr:(s[11]||0)*196.85,sq:s[14]||''}})}
+  return{id:'a'+s[0],gnd:!!s[8],kind:s[17]===8?'heli':'plane',cs:cs.toUpperCase(),reg:'',type:'',op:opOf(cs),cat:catOf(cs.toUpperCase(),'',0),lat0:s[6],lon0:s[5],alt0:s[8]?0:(s[7]??s[13]??0),gs:(s[9]||0)*1.944,trk:s[10]||0,vr:(s[11]||0)*196.85,sq:s[14]||''}})}
 let pollT;
 async function poll(){
   clearTimeout(pollT);if(S.mode!=='live')return;
@@ -787,6 +800,7 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;const id=b.dataset.id,a=b.dataset.act;
   if(b.dataset.view)return setView(b.dataset.view);
   if(b.dataset.range){S.range=+b.dataset.range;save();updRange();if(S.mode==='live')poll();return}
+  if(b.dataset.cat){S.cats[b.dataset.cat]^=1;save();renderFilters();tick();renderList();return}
   if(b.dataset.filter){S.filters[b.dataset.filter]^=1;renderFilters();tick();renderList();return}
   if(a==='watch'){toggleWatch(id,b);return}
   if(a==='alerts'){openAlerts();return}
