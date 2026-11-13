@@ -479,26 +479,30 @@ function drawAR(now){
     else if(el<-20){x.fillStyle=COL.ground;x.fillRect(0,0,W,H)}
   }
   // objects
-  HITS=[];let best=null,bestA=99;const vis=[];
+  // Point view only shows what could be seen by eye: aircraft within 50 miles and above the horizon.
+  // When several sit inside the ring, lock the nearest one, and keep the current lock unless another is clearly closer to centre.
+  HITS=[];let best=null,bestA=99,bestS=99;const vis=[],tol=Math.max(5,7/(S.zoom||1));
   for(const o of S.objs){
-    if(o.el<-4)continue;
-    if(isFinite(o.g)&&o.kind!=='sat'&&o.g>Math.max(S.range,25)*1609.34*1.6&&o.id!==S.sel&&!o.w)continue;
+    const air=o.kind==='plane'||o.kind==='heli',keep=o.id===S.sel||o.w;
+    if(o.el<(air?-1:-4)&&!keep)continue;
+    if(isFinite(o.g)&&o.kind!=='sat'&&o.g>50*1609.34&&!keep)continue;
     const ang=Math.acos(Math.max(-1,Math.min(1,dot(o.d,B.c))))/D;
-    if(ang<bestA){bestA=ang;best=o}
+    if(ang<tol){const sc=ang+(air&&isFinite(o.dist)?o.dist/1609.34*0.05:0)-(o.id===S.lock?1:0);if(sc<bestS){bestS=sc;best=o;bestA=ang}}
     const p=proj(o.d,B,W,H,f);if(!p||p[0]<-30||p[0]>W+30||p[1]<-30||p[1]>H+30)continue;
     const p2=proj(o.d2,B,W,H,f);vis.push([o,p,p2?Math.atan2(p2[0]-p[0],-(p2[1]-p[1])):0,ang]);
   }
-  vis.sort((a,b)=>a[3]-b[3]);
+  const pri=o=>o.id===S.lock||o.id===S.sel?0:o.w?1:2,LBX=[];vis.sort((a,b)=>pri(a[0])-pri(b[0])||a[3]-b[3]);
   x.font='700 11px "B612 Mono",monospace';x.textBaseline='middle';
   vis.forEach(([o,p,rot],i)=>{
     const on=o.id===S.lock||o.id===S.sel,col=on?COL.lock:kc(o);
     glyph(x,o.kind,p[0],p[1],o.kind==='sky'?13:on||o.w?11:9,rot,col,true);
     if(o.w)halo(x,p[0],p[1],16);else if(o.tier>=3&&!on){x.strokeStyle=COL.t4;x.lineWidth=1;x.beginPath();x.arc(p[0],p[1],16,0,7);x.stroke()}
-    if(i<8||on||o.w){x.fillStyle=col;x.fillText(o.cs,p[0]+(o.w?22:16),p[1]-6);x.fillStyle=COL.mute;x.font='400 10px "B612 Mono",monospace';x.fillText(isFinite(o.dist)?fDst(o):o.name,p[0]+(o.w?22:16),p[1]+7);x.font='700 11px "B612 Mono",monospace'}
+    const lw=Math.max(o.cs.length,7)*6.8+6,lx=p[0]+(o.w?22:16),must=on||o.w;
+    if((must||LBX.length<8)&&(must||!LBX.some(q=>lx<q[0]+q[2]&&lx+lw>q[0]&&Math.abs(p[1]-q[1])<26))){LBX.push([lx,p[1],lw]);x.fillStyle=col;x.fillText(o.cs,p[0]+(o.w?22:16),p[1]-6);x.fillStyle=COL.mute;x.font='400 10px "B612 Mono",monospace';x.fillText(isFinite(o.dist)?fDst(o):o.name,p[0]+(o.w?22:16),p[1]+7);x.font='700 11px "B612 Mono",monospace'}
     HITS.push([p[0],p[1],o.id]);
   });
   // lock logic
-  if(best&&bestA<Math.max(5,7/(S.zoom||1))){
+  if(best&&bestA<tol){
     if(!S.cand||S.cand.id!==best.id)S.cand={id:best.id,t:now};
     else if(S.lock!==best.id&&now-S.cand.t>650){S.lock=best.id;try{navigator.vibrate&&navigator.vibrate(25)}catch(e){}updCard()}
   }else{S.cand=null;if(S.lock){S.lock=null;updCard()}}
