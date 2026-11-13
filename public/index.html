@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0a0f2a"><style>body{margin:0}[hidden]{display:none!important}</style></head><body><title>Overhead Spotter</title>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0a0f2a"><title>Overhead Spotter</title><meta name="description" content="Point your phone at the sky to identify planes, helicopters and satellites, then compete with friends on badges and points."><meta property="og:type" content="website"><meta property="og:site_name" content="Overhead Spotter"><meta property="og:title" content="Overhead Spotter"><meta property="og:description" content="Point your phone at the sky. Know what's flying over you, and beat your friends to the rare ones."><meta property="og:url" content="%SITE_URL%/"><meta property="og:image" content="%SITE_URL%/og.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Overhead Spotter radar showing nearby aircraft"><meta name="twitter:card" content="summary_large_image"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="manifest" href="/manifest.webmanifest"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Overhead"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><style>body{margin:0}[hidden]{display:none!important}</style></head><body><title>Overhead Spotter</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=B612:wght@400;700&family=B612+Mono:wght@400;700&display=swap">
 <style>
@@ -117,6 +117,12 @@ h2:first-child{margin-top:0}
 .bars i{flex:1;background:var(--amber);border-radius:2px 2px 0 0;min-height:2px}
 .axis{display:flex;justify-content:space-between;font:400 10px var(--f-data);color:var(--mute);margin-top:4px}
 .wstar{color:var(--gold)}
+.steps{margin:0 0 14px;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;counter-reset:st}
+.steps li{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start;counter-increment:st}
+.steps li::before{content:counter(st);width:28px;height:28px;border-radius:50%;background:var(--panel-2);border:1px solid var(--line);display:grid;place-items:center;font:700 13px var(--f-data);color:var(--amber)}
+.steps b{display:block}.steps span{color:var(--mute);font-size:13px}
+.inst{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:12px;margin:0 0 14px}
+.code{font:700 15px var(--f-data);letter-spacing:.06em;color:var(--gold);user-select:all}
 .fsep{flex-basis:100%;height:0}
 .wrow{display:flex;gap:8px;align-items:center}
 .rank{font:700 13px var(--f-data);color:var(--mute);width:22px;text-align:center;flex:none}
@@ -225,11 +231,23 @@ input[type=range]{width:100%;accent-color:var(--amber)}
 
   <div class="sheet" id="detail" hidden><div class="sheet-p" id="detail-p"></div></div>
 
+  <div class="sheet" id="welcome" hidden><div class="sheet-p">
+    <div class="sheet-h"><div><h1>Overhead Spotter</h1><p>Point your phone at the sky to see what's flying over you.</p></div></div>
+    <ol class="steps">
+      <li><div><b>Allow location, motion and camera</b><span>The app needs them to know where you are and where your phone is pointing.</span></div></li>
+      <li><div><b>Aim at a plane and log it</b><span>Hold the ring on it until it locks, then tap Log it to earn points and badges.</span></div></li>
+      <li><div><b>Join your friends' club</b><span>Open the invite link they sent you, or go to Hangar and tap Join with a code.</span></div></li>
+    </ol>
+    <div class="inst" id="w-inst"></div>
+    <div class="row"><button class="btn go" data-act="welcome-go">Get started</button></div>
+  </div></div>
+
   <div class="sheet" id="settings" hidden><div class="sheet-p">
     <div class="sheet-h"><div><h1>Sensors</h1><p>Live mode uses your phone's GPS, compass and camera.</p></div>
       <button class="icon-btn" data-act="close" aria-label="Close">✕</button></div>
     <div id="sensor-rows"></div>
     <div class="row" style="margin-top:14px"><button class="btn go" data-act="live" id="live-btn">Start sensors</button></div>
+    <div id="s-inst"></div>
     <h2>Alerts</h2>
     <p class="note" style="margin-top:0">Get a notification when a watchlist, rare, military or emergency aircraft enters the logged area, even with the app closed.</p>
     <div class="row"><button class="btn" data-act="push" id="push-btn">Turn on alerts</button></div>
@@ -723,7 +741,7 @@ function renderSensors(){
   const lab={gps:'Location (GPS)',compass:'Compass and tilt',camera:'Camera view',feed:'Flight feed',sats:'Satellite orbits'},txt={on:'On',off:'Off',wait:'Starting',bad:'Unavailable'},cls={on:'ok',off:'off',wait:'off',bad:'bad'};
   $('#sensor-rows').innerHTML=Object.keys(lab).map(k=>'<div class="stat-row"><span>'+lab[k]+'</span><span class="'+cls[S.st[k]]+'">'+txt[S.st[k]]+(k==='camera'&&S.camInfo?' · '+S.camInfo:'')+'</span></div>').join('');
   const live=S.mode==='live';$('#mode').className='chip'+(live?' live':'');$('#mode span').textContent=live?'Live':S.st.gps==='wait'?'Starting':'Off';
-  $('#where').textContent=live?'Live · '+S.obs.lat.toFixed(2)+', '+S.obs.lon.toFixed(2):S.st.gps==='wait'?'Finding your location':'Location is off. Tap the chip to start';
+  $('#where').textContent=live?'Live · '+S.obs.lat.toFixed(2)+', '+S.obs.lon.toFixed(2):S.st.gps==='wait'?'Finding your location':S.st.gps==='bad'?'Location is off. Tap the chip to start':'Sensors not started yet';
   $('#hint').textContent=S.sens?'Aim at the sky · pinch to zoom':'Drag to look · pinch to zoom';$('#live-btn').textContent=live?'Restart sensors':'Start sensors';
 }
 
@@ -851,6 +869,9 @@ document.addEventListener('click',e=>{
   if(b.dataset.cat){S.cats[b.dataset.cat]^=1;save();renderFilters();tick();renderList();return}
   if(b.dataset.filter){S.filters[b.dataset.filter]^=1;renderFilters();tick();renderList();return}
   if(a==='watch'){toggleWatch(id,b);return}
+  if(a==='club-code'){clubForm('joincode');return}
+  if(a==='welcome-go'){welcomeGo();return}
+  if(a==='install'){if(INST){INST.prompt();INST.userChoice.then(()=>{INST=null;updInstall()}).catch(()=>{})}return}
   if(a==='alerts'){openAlerts();return}
   if(a==='aopen'){$('#detail').hidden=true;findWatched(b.dataset.hex);return}
   if(a==='aclear'){ALERTS=[];saveAlerts();updBell();openAlerts();return}
@@ -936,10 +957,11 @@ async function clubApi(op,body){
 }
 function clubHtml(){
   if(!HOSTED&&!/^localhost/.test(location.host))return'';
-  if(!CLUB)return'<h2>Club leaderboard</h2><p class="note" style="margin-top:0">Compete with friends on points and badges. Start a club, then send the invite link to your friends.</p><div class="row" style="margin-bottom:6px"><button class="btn go" data-act="club-start">Start a club</button></div>';
+  if(!CLUB)return'<h2>Club leaderboard</h2><p class="note" style="margin-top:0">Compete with friends on points and badges. Start a club and send the invite to friends, or join one with the code a friend sent you.</p><div class="row" style="margin-bottom:6px"><button class="btn go" data-act="club-start">Start a club</button><button class="btn" data-act="club-code">Join with a code</button></div>';
   const rows=(BOARD||[]).map((p,i)=>{const me=p.pid===CLUB.pid,b=p.best;
     return'<div class="item'+(me?' me':'')+'"><span class="rank">'+(i+1)+'</span><span class="mid"><b>'+esc(p.name)+(me?' (you)':'')+'</b><span>Level '+p.lvl+' · '+p.n+(p.n===1?' catch':' catches')+' · '+p.badges+(p.badges===1?' badge':' badges')+(b?' · Best: '+esc(TIER[b.tier])+' '+esc(b.name||b.cs):'')+'</span></span><span class="end"><b>'+num(p.pts)+'</b>points</span></div>'}).join('');
   return'<h2>Club leaderboard</h2><div class="list" id="club-board">'+(BOARD?rows||'<div class="empty">Nobody has logged a catch yet.</div>':'<p class="note">Loading the leaderboard.</p>')+'</div>'
+    +'<p class="note">Invite code: <span class="code">'+esc(CLUB.code)+'</span></p>'
     +'<div class="row" style="margin:10px 0 6px"><button class="btn" data-act="club-invite">Invite friends</button><button class="btn sm" data-act="club-name">Change name</button><button class="btn sm" data-act="club-leave">Leave</button></div>';
 }
 function clubPayload(){return{code:CLUB.code,pid:CLUB.pid,token:CLUB.token,name:CLUB.name,badges:BADGES.filter(b=>b[3](LOG)).length,log:LOG.map(x=>({k:x.key,tier:x.tier,cs:x.cs,name:x.name,t:x.ts}))}}
@@ -949,9 +971,9 @@ async function clubSync(now){
   if(now)return go();clubT=setTimeout(go,1500);
 }
 function clubForm(kind){
-  S.detail=null;const P=$('#detail-p'),title=kind==='create'?'Start a club':kind==='join'?'Join the club':'Change your name';
+  S.detail=null;const P=$('#detail-p'),title=kind==='create'?'Start a club':kind==='join'||kind==='joincode'?'Join the club':'Change your name';
   P.innerHTML='<div class="sheet-h"><div><h1>'+title+'</h1><p>'+(kind==='rename'?'This is how friends see you on the leaderboard.':'Pick the name your friends will see on the leaderboard.')+'</p></div><button class="icon-btn" data-act="close" aria-label="Close">✕</button></div>'
-    +'<form id="club-form" data-kind="'+kind+'"><label class="field"><span class="lbl">Your name</span><input id="club-nm" maxlength="20" autocomplete="nickname" required value="'+esc((CLUB&&CLUB.name)||'')+'"></label><div class="row"><button class="btn go" type="submit">'+(kind==='create'?'Start club':kind==='join'?'Join':'Save name')+'</button></div></form>';
+    +'<form id="club-form" data-kind="'+kind+'">'+(kind==='joincode'?'<label class="field"><span class="lbl">Invite code</span><input id="club-code" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" required></label>':'')+'<label class="field"><span class="lbl">Your name</span><input id="club-nm" maxlength="20" autocomplete="nickname" required value="'+esc((CLUB&&CLUB.name)||'')+'"></label><div class="row"><button class="btn go" type="submit">'+(kind==='create'?'Start club':kind==='rename'?'Save name':'Join')+'</button></div></form>';
   $('#detail').hidden=false;setTimeout(()=>{try{$('#club-nm').focus()}catch(e){}},50);
 }
 document.addEventListener('submit',async e=>{
@@ -959,12 +981,12 @@ document.addEventListener('submit',async e=>{
   const kind=e.target.dataset.kind,name=$('#club-nm').value.trim(),btn=e.target.querySelector('button');if(!name)return;btn.disabled=true;
   try{
     if(kind==='rename'){CLUB.name=name;saveClub();await clubSync(true);toast('Name saved')}
-    else{const j=await clubApi(kind,kind==='join'?{code:S.joinCode,name}:{name});CLUB={code:j.code,pid:j.pid,token:j.token,name:j.name};saveClub();await clubSync(true);toast(kind==='create'?'Club started. Tap Invite friends to share it.':'You joined the club')}
+    else{if(kind==='joincode')S.joinCode=($('#club-code').value||'').trim().replace(/^.*#join-/,'');const op=kind==='create'?'create':'join',j=await clubApi(op,op==='join'?{code:S.joinCode,name}:{name});CLUB={code:j.code,pid:j.pid,token:j.token,name:j.name};saveClub();await clubSync(true);toast(kind==='create'?'Club started. Tap Invite friends to share it.':'You joined the club')}
     $('#detail').hidden=true;setView('hangar');
   }catch(err){toast(err.message);btn.disabled=false}
 });
 async function clubInvite(){
-  const link=location.origin+'/#join-'+CLUB.code,text='Join my Overhead Spotter club and see who catches the rarest aircraft: '+link;
+  const link=location.origin+'/#join-'+CLUB.code,text='Join my Overhead Spotter club and see who catches the rarest aircraft: '+link+'\nOn iPhone, add the app to your home screen first, then go to Hangar, tap Join with a code and enter '+CLUB.code;
   try{if(navigator.share){await navigator.share({title:'Overhead Spotter club',text,url:link});return}}catch(e){if(e&&e.name==='AbortError')return}
   try{await navigator.clipboard.writeText(link);toast('Invite link copied. Paste it in a text to your friends.')}catch(e){toast('Invite link: '+link)}
 }
@@ -1096,7 +1118,29 @@ updAlign();updPush();
 /* ---------- boot ---------- */
 $('#fov').value=S.fov;$('#fov-v').textContent=S.fov+'°';
 renderFilters();updRange();updPath();renderSensors();tick();
-goLive();
+/* ---------- first run and install ---------- */
+let INST=null;
+const STANDALONE=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
+const IOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
+function installHtml(){
+  if(STANDALONE)return'';
+  if(INST)return'<b>Install the app</b><p class="note" style="margin:4px 0 10px">Adds Overhead Spotter to your home screen so it opens full screen.</p><div class="row"><button class="btn" data-act="install">Install app</button></div>';
+  if(IOS)return'<b>Add it to your home screen</b><p class="note" style="margin:4px 0 0">In Safari, tap the Share button, then Add to Home Screen. Open it from there from now on.</p>';
+  return'<b>Add it to your home screen</b><p class="note" style="margin:4px 0 0">In Chrome, open the menu and tap Add to Home screen or Install app.</p>';
+}
+function updInstall(){const h=installHtml();for(const id of['w-inst','s-inst']){const el=$('#'+id);if(el){el.innerHTML=h;el.hidden=!h;if(id==='s-inst'&&h)el.className='inst'}}}
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();INST=e;updInstall()});
+addEventListener('appinstalled',()=>{INST=null;updInstall();toast('Installed. Open Overhead Spotter from your home screen.')});
+updInstall();
+// first open: explain the permissions before asking for them (iPhone also needs a tap before it allows the compass)
+function welcomeGo(){
+  try{localStorage.setItem('overhead.welcomed','1')}catch(e){}$('#welcome').hidden=true;
+  try{if(typeof DeviceOrientationEvent!=='undefined'&&DeviceOrientationEvent.requestPermission)DeviceOrientationEvent.requestPermission().catch(()=>{})}catch(e){}
+  goLive();
+}
+$('#welcome').addEventListener('click',e=>{if(e.target.id==='welcome')welcomeGo()});
+const WELCOMED=(()=>{try{return localStorage.getItem('overhead.welcomed')==='1'}catch(e){return true}})();
+if(WELCOMED)goLive();else $('#welcome').hidden=false;
 clubBoot();
 updBell();
 (()=>{const m=/^#ac-([0-9a-f]{6})$/.exec(location.hash);if(m){try{history.replaceState(null,'',location.pathname)}catch(e){}addAlert('push','',m[1],'');openWhenLive(m[1])}})();
