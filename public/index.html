@@ -61,6 +61,15 @@ dl{margin:0}
 .btn[disabled]{opacity:.6;cursor:default}
 .btn.sm{flex:0 0 auto;min-width:0}
 .btn[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
+#flash{position:absolute;left:0;right:0;top:34%;z-index:12;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;text-align:center;text-shadow:0 2px 18px rgba(0,0,0,.9)}
+#flash b{font:300 84px/1 var(--f-display);letter-spacing:-.03em;color:currentColor}
+#flash .fl1{font:500 11px var(--f-data);letter-spacing:.24em;text-transform:uppercase;color:currentColor}
+#flash .fl2{font:500 11px var(--f-data);letter-spacing:.18em;text-transform:uppercase;color:#000;background:var(--amber);padding:6px 10px;margin-top:4px}
+#flash.go{animation:flash 1.7s cubic-bezier(.2,.8,.2,1) both}
+#flash.t1{color:var(--ink)}
+#flash.go.long{animation-duration:2.6s}
+@keyframes flash{0%{opacity:0;transform:scale(.7)}12%{opacity:1;transform:scale(1.06)}22%{transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:translateY(-24px)}}
+@media (prefers-reduced-motion:reduce){#flash.go{animation:none}}
 .pill{font:700 10px var(--f-data);letter-spacing:.1em;text-transform:uppercase;padding:3px 7px;border-radius:0;border:1px solid currentColor;white-space:nowrap}
 .t1{color:var(--t1)}.t2{color:var(--t2)}.t3{color:var(--t3)}.t4{color:var(--t4)}
 .radar-ctl{position:absolute;left:var(--gl);right:var(--gr);bottom:12px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
@@ -69,7 +78,11 @@ dl{margin:0}
 .seg button[aria-pressed="true"]{background:var(--amber);color:#000}
 .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
 .filters button{padding:7px 10px;border-radius:0;border:1px solid var(--line);font-size:12px;color:var(--mute);display:flex;gap:6px;align-items:center}
-.filters button[aria-pressed="true"]{color:var(--ink);background:var(--panel-2)}
+.filters button[aria-pressed="true"]{color:#000;background:var(--ink);border-color:var(--ink)}
+.filters button[aria-pressed="true"] .dot{box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+.filters button[aria-pressed="false"]{color:var(--mute);opacity:.7}
+.filters .fnote{flex-basis:100%;margin:4px 0 0;font:400 10.5px var(--f-data);letter-spacing:.14em;text-transform:uppercase;color:var(--amber);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.filters .fnote button{border:0;padding:0;color:var(--ink);text-decoration:underline;font:inherit;opacity:1;background:none}
 #map{position:absolute;inset:0;background:var(--sky-hi);touch-action:none}
 #mapc{position:absolute;inset:0;width:100%;height:100%;z-index:500;pointer-events:none}
 .map-top{position:absolute;z-index:600;top:10px;left:var(--gl);right:var(--gr);margin:0}
@@ -146,12 +159,22 @@ h2:first-child{margin-top:0}
 .sheet{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,.72)}
 .sheet-p{background:var(--panel);border-top:1px solid var(--line);border-radius:0 0 0;max-height:88%;overflow-y:auto;padding-block:16px 22px;padding-left:var(--gl);padding-right:var(--gr)}
 .sheet-h{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px}
+.sheet-p::before{content:"";display:block;width:44px;height:3px;background:var(--line-2);margin:-6px auto 12px}
+.logbig{width:100%;flex:none;padding:16px 12px;font-size:12.5px;margin-top:14px}
+.dmore{padding-top:6px}
+.row .btn{min-width:0}
+.dmore-btn{display:none;width:100%;margin-top:10px;padding:12px;border:0;border-top:1px solid var(--line);font:500 10.5px var(--f-data);letter-spacing:.2em;text-transform:uppercase;color:var(--mute)}
+.sheet-p.peek:has(.dmore){overflow:hidden}
+.sheet-p.peek .dmore{display:none}
+.sheet-p.peek .dmore-btn{display:block}
+.sheet-p.peek #d-live>div:nth-child(n+4){display:none}
 .sheet-h div{flex:1;min-width:0}
 .sheet-h h1{margin:0;font:300 28px/1.1 var(--f-display);letter-spacing:-.02em;overflow-wrap:anywhere}
 .sheet-h p{margin:2px 0 0;color:var(--mute)}
 .sheet-h .eyebrow{margin:0 0 10px;font:400 10.5px var(--f-data);letter-spacing:.22em;text-transform:uppercase;color:var(--amber)}
 .sheet-h h1+p{margin-top:8px}
 .route{display:flex;align-items:center;gap:10px;background:var(--panel-2);border-radius:0;padding:10px 12px;margin-bottom:12px}
+.route.guess span{display:flex;flex-direction:column;gap:3px}.route.guess small{font:400 9.5px var(--f-data);letter-spacing:.16em;text-transform:uppercase;color:var(--mute)}.route.guess span:last-child{text-align:right}
 .route span{flex:1;min-width:0;font-weight:700}
 .route span:last-child{text-align:right}
 .route svg{flex:none;color:var(--amber)}
@@ -269,7 +292,7 @@ input[type=range]{width:100%;accent-color:var(--amber)}
     <input type="range" id="fov" min="40" max="80" value="60">
     <p class="note">If labels drift off the real aircraft as you pan, adjust this until they stay put.</p>
     <h2>Where data comes from</h2>
-    <p class="note">Aircraft: community ADS-B receiver networks <a href="https://adsb.fi" target="_blank" rel="noopener" style="color:var(--lock)">adsb.fi</a> and <a href="https://adsb.lol" target="_blank" rel="noopener" style="color:var(--lock)">adsb.lol</a>. Satellites: orbital elements from CelesTrak. Sun and Moon: computed on your phone. Live mode sends your rounded position to the flight feed to ask what is nearby. Ships need an AIS data key and are not shown yet. Owner, model and photo come from public aircraft registry records. Your logbook and sighting counts are saved in this browser only.</p>
+    <p class="note">Aircraft: community ADS-B receiver networks <a href="https://adsb.fi" target="_blank" rel="noopener" style="color:var(--lock)">adsb.fi</a> and <a href="https://adsb.lol" target="_blank" rel="noopener" style="color:var(--lock)">adsb.lol</a>. Flight paths from takeoff: <a href="https://opensky-network.org" target="_blank" rel="noopener" style="color:var(--lock)">The OpenSky Network</a>. Satellites: orbital elements from CelesTrak. Sun and Moon: computed on your phone. Live mode sends your rounded position to the flight feed to ask what is nearby. Ships need an AIS data key and are not shown yet. Owner, model and photo come from public aircraft registry records. Your logbook and sighting counts are saved in this browser only.</p>
   </div></div>
 
   <div id="toast" hidden role="status"><span id="toast-t"></span><span class="go" id="toast-go" hidden>Tap to see it on the map</span></div>
@@ -375,8 +398,11 @@ function celestial(date,lat,lon){
 /* ---------- objects ---------- */
 function tierOf(o){if(o.emg)return 4;if(o.kind==='plane'||o.kind==='heli')return Math.max((TYPES[o.type]||[])[8]||1,o.mil?3:0);if(o.kind==='sat')return /^(ISS|CSS)/.test(o.cs)?3:2;if(o.kind==='ship')return 2;return 1}
 const typeName=o=>(TYPES[o.type]||[])[0]||o.name||o.desc||o.type||KIND[o.kind];
-const keyOf=o=>o.kind+':'+(o.reg||o.cs||o.id);
-const logged=o=>LOG.some(x=>x.key===keyOf(o));
+// One catch per airframe: aircraft are keyed by their permanent ICAO address. Older catches used the tail number or
+// callsign, so those keys still count as caught.
+const legacyKey=o=>o.kind+':'+(o.reg||o.cs||o.id);
+const keyOf=o=>(o.kind==='plane'||o.kind==='heli')&&/^a[0-9a-f]{6}$/.test(o.id)?'ac:'+o.id.slice(1):legacyKey(o);
+const logged=o=>{const k=keyOf(o),l=legacyKey(o),h=o.id&&o.id[0]==='a'?o.id.slice(1):'';return LOG.some(x=>x.key===k||x.key===l||(h&&x.hex===h))};
 function liveObjs(now){
   const out=[];
   for(const k in S.live){const o=S.live[k],dt=(now-o.t)/1000;if(dt>60){delete S.live[k];continue}
@@ -689,7 +715,8 @@ function updRare(){
 }
 let toastT;function toast(m,id){const t=$('#toast');$('#toast-t').textContent=m;t.dataset.id=id||'';t.classList.toggle('tap',!!id);$('#toast-go').hidden=!id;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,id?7000:3800)}
 function setView(v){S.view=v;for(const n of['point','radar','map','list','hangar'])$('#v-'+n).hidden=n!==v;$$('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.view===v));if(v==='map')openMap();if(v==='list')renderList();if(v==='hangar'){renderHangar();clubSync(true)}}
-function renderFilters(){$('#mfilters').innerHTML=$('#filters').innerHTML=Object.keys(KIND).map(k=>'<button data-filter="'+k+'" aria-pressed="'+!!S.filters[k]+'"><i class="dot" style="background:var(--k-'+k+')"></i>'+KIND[k]+(k==='sky'?'':'s')+'</button>').join('')+'<button data-act="gnd" aria-pressed="'+!!S.showGnd+'">Parked aircraft</button><span class="fsep" aria-hidden="true"></span>'+Object.keys(CATN).map(k=>'<button data-cat="'+k+'" aria-pressed="'+!!S.cats[k]+'">'+CATN[k]+'</button>').join('')}
+function renderFilters(){$('#mfilters').innerHTML=$('#filters').innerHTML=Object.keys(KIND).map(k=>'<button data-filter="'+k+'" aria-pressed="'+!!S.filters[k]+'"><i class="dot" style="background:var(--k-'+k+')"></i>'+KIND[k]+(k==='sky'?'':'s')+'</button>').join('')+'<button data-act="gnd" aria-pressed="'+!!S.showGnd+'">Parked aircraft</button><span class="fsep" aria-hidden="true"></span>'+Object.keys(CATN).map(k=>'<button data-cat="'+k+'" aria-pressed="'+!!S.cats[k]+'">'+CATN[k]+'</button>').join('')+filterNote()}
+function filterNote(){const off=Object.keys(KIND).filter(k=>!S.filters[k]).map(k=>KIND[k]+(k==='sky'?'':'s')).concat(Object.keys(CATN).filter(k=>!S.cats[k]).map(k=>CATN[k]));return off.length?'<p class="fnote">Hiding '+esc(off.join(', '))+' <button data-act="fall">Show all</button></p>':''}
 function renderList(){
   const qq=($('#q').value||'').toUpperCase().replace(/\s+/g,''),l=S.objs.filter(o=>!qq||[o.cs,o.reg,o.type,o.op,typeName(o)].join('|').toUpperCase().replace(/\s+/g,'').includes(qq)).sort((a,b)=>(b.w|0)-(a.w|0)||(isFinite(a.dist)?a.dist:9e12)-(isFinite(b.dist)?b.dist:9e12));
   $('#list').innerHTML=l.length?l.map(o=>'<button class="item" data-act="detail" data-id="'+esc(o.id)+'"><i class="dot" style="background:var(--k-'+o.kind+')"></i><span class="mid"><b>'+(o.w?'<span class="wstar" aria-label="On your watchlist">★</span> ':'')+esc(o.cs)+(logged(o)?' ✓':'')+'</b><span>'+esc(typeName(o))+(o.op?' · '+esc(o.op):'')+'</span></span><span class="end"><b>'+(isFinite(o.dist)?fDst(o):'—')+'</b>'+compass(o.az)+' · '+(o.kind==='plane'||o.kind==='heli'?fAlt(o):'<span class="t'+o.tier+'">'+TIER[o.tier]+'</span>')+'</span></button>').join('')
@@ -705,13 +732,23 @@ function renderHangar(){
    +'<h2>Logbook</h2>'+(LOG.length?'<div class="list">'+[...LOG].reverse().slice(0,40).map(x=>'<div class="item"><i class="dot" style="background:var(--k-'+x.kind+')"></i><span class="mid"><b>'+esc(x.cs)+'</b><span>'+esc(x.name)+'</span></span><span class="end"><b class="t'+x.tier+'">+'+x.pts+'</b>'+new Date(x.ts).toLocaleDateString('en-US',{month:'short',day:'numeric'})+'</span></div>').join('')+'</div><div class="row" style="margin-top:14px"><button class="btn" data-act="reset" id="reset-btn">Clear logbook</button></div>'
      :'<div class="empty">No catches yet. On the Point tab, hold the ring on an aircraft until it locks, then tap Log it.</div>');
 }
+// The moment a catch lands: points in the rarity's color, then any badge or level it unlocked.
+function catchFlash(o,badges,level){
+  let f=$('#flash');if(!f){f=document.createElement('div');f.id='flash';f.setAttribute('role','status');f.setAttribute('aria-live','polite');document.querySelector('.app').appendChild(f)}
+  f.className='t'+o.tier;
+  f.innerHTML='<b>+'+PTS[o.tier]+'</b><span class="fl1">'+TIER[o.tier]+' · '+esc(o.cs)+'</span>'
+    +badges.map(n=>'<span class="fl2">Badge earned · '+esc(n)+'</span>').join('')+(level?'<span class="fl2">Level '+level+' reached</span>':'');
+  f.hidden=false;f.classList.remove('go');void f.offsetWidth;f.classList.add('go');f.classList.toggle('long',!!(badges.length||level));
+  clearTimeout(f._t);f._t=setTimeout(()=>{f.hidden=true},badges.length||level?2600:1700);
+}
 function logCatch(id){
   const o=find(id);if(!o||logged(o))return;
   const before=BADGES.filter(b=>b[3](LOG)).map(b=>b[0]),T=TYPES[o.type]||[];
-  LOG.push({key:keyOf(o),cs:o.cs,name:typeName(o),kind:o.kind,type:o.type||'',cls:T[10]||'',mil:o.mil?1:0,tier:o.tier,pts:PTS[o.tier],ts:Date.now(),ft:Math.round(o.alt/0.3048)||0,mi:isFinite(o.dist)?o.dist/1609.34:0});save();
+  LOG.push({key:keyOf(o),hex:o.id[0]==='a'?o.id.slice(1):'',reg:o.reg||(REG[o.id.slice(1)]||{}).registration||'',route:(S.routes[o.cs]&&S.routes[o.cs].from)?S.routes[o.cs].from+' → '+(S.routes[o.cs].to||'?'):'',owner:(REG[o.id.slice(1)]||{}).registered_owner||o.own||'',cs:o.cs,name:typeName(o),kind:o.kind,type:o.type||'',cls:T[10]||'',mil:o.mil?1:0,tier:o.tier,pts:PTS[o.tier],ts:Date.now(),ft:Math.round(o.alt/0.3048)||0,mi:isFinite(o.dist)?o.dist/1609.34:0});save();
   const nb=BADGES.filter(b=>b[3](LOG)&&!before.includes(b[0])).map(b=>b[1]);
-  toast('Logged '+o.cs+'  +'+PTS[o.tier]+(nb.length?' · Badge earned: '+nb.join(', '):''));
-  try{navigator.vibrate&&navigator.vibrate([20,40,20])}catch(e){}
+  const lv=p=>Math.floor(Math.sqrt(p/50))+1,tot=LOG.reduce((a,x)=>a+(x.pts||0),0),up=lv(tot)>lv(tot-PTS[o.tier])?lv(tot):0;
+  catchFlash(o,nb,up);
+  try{navigator.vibrate&&navigator.vibrate(o.tier>=4?[40,50,40,50,140]:o.tier>=3?[30,50,90]:nb.length||up?[25,40,60]:[35])}catch(e){}
   if(cardId===o.id)updLogBtn(o);if(S.detail===id)openDetail(id);
   clubSync();
 }
@@ -719,7 +756,10 @@ function openDetail(id){
   const o=find(id);if(!o)return;S.detail=S.focus=id;const T=TYPES[o.type],done=logged(o),air=o.kind==='plane'||o.kind==='heli';
   let h='<div class="sheet-h"><div><h1>'+esc(o.cs)+'</h1><p>'+esc(typeName(o))+(o.op?' · '+esc(o.op):'')+'</p></div><em class="pill t'+o.tier+'">'+TIER[o.tier]+'</em><button class="icon-btn" data-act="close" aria-label="Close">✕</button></div>';
   h+='<div id="d-route">'+routeHtml(o)+'</div><dl class="stats" id="d-live"></dl>';
-  h+='<div class="row" style="margin:14px 0"><button class="btn" data-act="guide" data-id="'+esc(o.id)+'">Guide me to it</button>'+(air?'<button class="btn sm" data-act="path" data-id="'+esc(o.id)+'" aria-pressed="'+!!S.path+'">Flight path</button><button class="btn sm" data-act="watch" data-id="'+esc(o.id)+'" aria-pressed="'+(o.id[0]==='a'&&WATCH.has(o.id.slice(1)))+'">Watch</button>':'')+'<button class="btn go" data-act="log" data-id="'+esc(o.id)+'"'+(done?' disabled':'')+'>'+(done?'In your logbook':'Log it  +'+PTS[o.tier])+'</button></div>'+(air&&S.sens?'<div class="row" style="margin:-4px 0 14px"><button class="btn" data-act="alignon" data-id="'+esc(o.id)+'">Align compass on this aircraft</button></div>':'');
+  // Peek card: the essentials and Log it first; everything else opens with More details or a swipe up.
+  h+='<button class="btn go logbig" data-act="log" data-id="'+esc(o.id)+'"'+(done?' disabled':'')+'>'+(done?'In your logbook':'Log it  +'+PTS[o.tier])+'</button>'
+    +'<div class="row" style="margin:8px 0 0"><button class="btn" data-act="guide" data-id="'+esc(o.id)+'">Guide me</button>'+(air?'<button class="btn" data-act="path" data-id="'+esc(o.id)+'" aria-pressed="'+!!S.path+'">Flight path</button><button class="btn" data-act="watch" data-id="'+esc(o.id)+'" aria-pressed="'+(o.id[0]==='a'&&WATCH.has(o.id.slice(1)))+'">Watch</button>':'')+'</div>'
+    +'<button class="dmore-btn" data-act="dmore">More details ↑</button><div class="dmore">';
   if(air)h+='<div id="d-air">'+airHtml(o)+'</div>';
   if(T){h+='<h2>About the '+esc(T[0])+'</h2><dl class="spec"><dt>Role</dt><dd>'+T[2]+'</dd><dt>Built by</dt><dd>'+T[1]+'</dd><dt>Power</dt><dd>'+T[3]+'</dd><dt>Carries</dt><dd>'+T[4]+'</dd>'+(T[5]?'<dt>Range</dt><dd>'+num(T[5]*1.1508)+' mi</dd>':'')+'<dt>Flying since</dt><dd>'+T[7]+'</dd><dt>'+(T[10]==='heli'?'Rotor':'Wingspan')+'</dt><dd>'+T[6]+' ft</dd></dl>'
     +'<div class="span-bar"><span class="lbl">Size next to an A380 (261.6 ft)</span><div class="bar"><i style="width:'+Math.round(T[6]/261.6*100)+'%"></i></div></div><p class="fact">'+T[9]+'</p><p class="note">Typical figures. Variants and airline layouts differ.</p>'}
@@ -727,12 +767,39 @@ function openDetail(id){
   else if(o.kind==='ship'){h+='<h2>About this vessel</h2><p class="fact">'+esc(o.name)+'. Ships broadcast their position over AIS, the marine cousin of the ADS-B signal aircraft send.</p>'}
   else if(o.kind==='sky'){h+='<h2>Compass check</h2><p class="fact">Aim at '+esc(o.name)+' and see whether its marker sits on top of it. If it does, your compass and zoom are dialed in.'+(o.cs==='SUN'?' Never look straight at the Sun, and do not point your camera at it for long.':'')+'</p>'}
   else if(air){h+='<h2>Aircraft type</h2><p class="note">'+(o.type?'Type code '+esc(o.type)+' is not in the type guide yet.':'This aircraft is not reporting a type code.')+'</p>'}
-  $('#detail-p').innerHTML=h;$('#detail').hidden=false;updDetailLive();
+  if(air&&S.sens)h+='<div class="row" style="margin:14px 0 0"><button class="btn" data-act="alignon" data-id="'+esc(o.id)+'">Align compass on this aircraft</button></div>';
+  h+='</div>';
+  const P=$('#detail-p');P.innerHTML=h;P.classList.add('peek');P.scrollTop=0;$('#detail').hidden=false;updDetailLive();
   if(S.mode==='live'&&air&&o.cs&&!S.routes[o.cs])lookupRoute(o);
   if(S.mode==='live'&&air){lookupAir(o);lookupSeen(o);lookupTrack(o)}
 }
+// Where an aircraft with no published route took off from, and where it is likely heading,
+// from its track (OpenSky) and the airports and heliports in places.json (OurAirports, public domain).
+let PLACES=null,placesP=null;
+function loadPlaces(){if(!placesP)placesP=fetch('places.json').then(r=>r.json()).then(j=>{PLACES=j;if(S.detail){const el=$('#d-route'),o=find(S.detail);if(el&&o)el.innerHTML=routeHtml(o)}}).catch(()=>{placesP=null});return placesP}
+const PNAME=p=>p[2]==='H'||p[2]==='W'?p[1]:p[1]+' ('+p[0]+')';
+function gcMi(a,b,c,d){const R=3958.8,x=(c-a)*D,y=(d-b)*D,h=Math.sin(x/2)**2+Math.cos(a*D)*Math.cos(c*D)*Math.sin(y/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
+function brg(a,b,c,d){const y=Math.sin((d-b)*D)*Math.cos(c*D),x=Math.cos(a*D)*Math.sin(c*D)-Math.sin(a*D)*Math.cos(c*D)*Math.cos((d-b)*D);return(Math.atan2(y,x)/D+360)%360}
+function nearPlace(lat,lon,heli,maxMi){if(!PLACES)return null;let best=null,bd=1e9;for(const p of PLACES){if(!heli&&p[2]==='H')continue;const lim=p[2]==='H'?Math.min(maxMi,.6):maxMi,d=gcMi(lat,lon,p[3],p[4]);if(d<lim&&d<bd){bd=d;best=p}}return best}
+function guessRoute(o){
+  if(!(o.kind==='plane'||o.kind==='heli'))return null;if(!PLACES){loadPlaces();return null}
+  const heli=o.kind==='heli',k=o.id.slice(1),st=TRKSTART[k],out={};
+  if(o.gnd){const p=nearPlace(o.lat,o.lon,heli,2);if(p)out.at=PNAME(p);return out}
+  if(st){const low=st[4]||st[3]<(heli?1500:3000),p=nearPlace(st[1],st[2],heli,low?3:10);if(p){out.from=PNAME(p);out.fromLow=low;out.ago=Math.round((Date.now()-st[0])/6e4)}}
+  const ft=o.alt/0.3048,down=(o.vr||0)<-300;
+  if(ft<(heli?2500:5000)||down){let best=null,bs=1e9;const lim=heli?40:80;
+    for(const p of PLACES){if(!heli&&p[2]==='H')continue;if(!heli&&ft>3000&&p[2]==='S')continue;const d=gcMi(o.lat,o.lon,p[3],p[4]);if(d>lim||d<.3)continue;
+      const off=Math.abs(((brg(o.lat,o.lon,p[3],p[4])-(o.trk||0))+540)%360-180);if(off>(d<5?35:15))continue;const sc=d*(1+off/12)*(p[2]==='L'||p[2]==='M'?.8:1);if(sc<bs){bs=sc;best=[p,d]}}
+    if(best)out.to=PNAME(best[0]),out.toMi=best[1]}
+  return out.from||out.to||out.at?out:null;
+}
 function routeHtml(o){
-  const r=S.routes[o.cs]||(o.from?{from:o.from,to:o.to}:null);if(!r||!r.from)return'';
+  const r=S.routes[o.cs]||(o.from?{from:o.from,to:o.to}:null);
+  if(!r||!r.from){const g=guessRoute(o);if(!g)return'';
+    if(g.at)return'<div class="route"><span>On the ground at '+esc(g.at)+'</span></div>';
+    return'<div class="route guess">'+(g.from?'<span><small>'+(g.fromLow?'Took off from':'First seen near')+(g.ago>0?' · '+(g.ago<90?g.ago+' min ago':Math.round(g.ago/60)+' h ago'):'')+'</small>'+esc(g.from)+'</span>':'<span><small>Took off from</small>Not known yet</span>')
+      +'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12h16M14 6l6 6-6 6"/></svg>'
+      +'<span><small>Likely heading to'+(g.toMi?' · '+(g.toMi<10?g.toMi.toFixed(1):Math.round(g.toMi))+' mi':'')+'</small>'+(g.to?esc(g.to):'Not clear yet')+'</span></div>'}
   return'<div class="route"><span>'+esc(r.from)+'</span>'+(r.to?'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12h16M14 6l6 6-6 6"/></svg><span>'+esc(r.to)+'</span>':'')+'</div>'+(r.oi||r.di?'<div class="links" style="margin:-2px 0 12px">'+[r.oi,r.di].filter(Boolean).map(c=>'<a href="https://www.liveatc.net/search/?icao='+encodeURIComponent(c)+'" target="_blank" rel="noopener">Tower audio '+esc(c)+'</a>').join('')+'</div>':'');
 }
 async function lookupRoute(o){
@@ -742,7 +809,8 @@ async function lookupRoute(o){
       if(S.detail===o.id){const el=$('#d-route');if(el)el.innerHTML=routeHtml(o)}}}catch(e){}
 }
 function updDetailLive(){
-  const o=find(S.detail),el=$('#d-live');if(!el)return;if(!o){el.innerHTML='<div style="grid-column:1/-1" class="note">Out of range now.</div>';return}
+  const o=find(S.detail),el=$('#d-live');if(!el)return;
+  if(o&&!S.routes[o.cs]&&Date.now()-(S.rT||0)>8000){S.rT=Date.now();const rr=$('#d-route'),h=routeHtml(o);if(rr&&rr.innerHTML!==h)rr.innerHTML=h}if(!o){el.innerHTML='<div style="grid-column:1/-1" class="note">Out of range now.</div>';return}
   const c=(a,b)=>'<div><dt>'+a+'</dt><dd>'+b+'</dd></div>',air=o.kind==='plane'||o.kind==='heli';
   el.innerHTML=c('Altitude',fAlt(o))+c('Speed',fSpd(o))+c('Distance',fDst(o))+c('Bearing',Math.round(o.az)+'° '+compass(o.az))+c('Elevation',(o.el>=0?'+':'')+Math.round(o.el)+'°')
    +(air?c('Heading',Math.round(o.trk||0)+'° '+compass(o.trk||0))+c('Climb',(o.vr>0?'+':'')+num(o.vr||0)+' fpm')+c('Squawk',esc(o.sq||'—'))+c('Tail no.',esc(o.reg||'—')):o.trk!=null?c('Heading',Math.round(o.trk)+'° '+compass(o.trk)):'');
@@ -872,10 +940,19 @@ async function loadSats(){
 }
 
 /* ---------- events ---------- */
+// Swipe the detail card: up opens the full details, down shrinks it back or closes it.
+(()=>{const P=$('#detail-p');let y0=null,t0=0;
+  P.addEventListener('touchstart',e=>{y0=e.touches[0].clientY;t0=P.scrollTop},{passive:true});
+  P.addEventListener('touchend',e=>{if(y0==null)return;const dy=e.changedTouches[0].clientY-y0;y0=null;
+    if(P.classList.contains('peek')){if(dy<-40&&$('#detail-p .dmore'))P.classList.remove('peek');else if(dy>60){$('#detail').hidden=true;S.detail=null}}
+    else if(dy>60&&t0<=0&&P.scrollTop<=0&&$('#detail-p .dmore')){P.classList.add('peek')}},{passive:true});
+})();
 document.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;const id=b.dataset.id,a=b.dataset.act;
   if(b.dataset.view)return setView(b.dataset.view);
   if(b.dataset.range){S.range=+b.dataset.range;save();updRange();if(S.mode==='live')poll();return}
+  if(a==='dmore'){const P=$('#detail-p');P.classList.remove('peek');return}
+  if(a==='fall'){for(const k of Object.keys(S.filters))S.filters[k]=1;for(const k of Object.keys(S.cats))S.cats[k]=1;save();renderFilters();tick();renderList();return}
   if(b.dataset.cat){S.cats[b.dataset.cat]^=1;save();renderFilters();tick();renderList();return}
   if(b.dataset.filter){S.filters[b.dataset.filter]^=1;renderFilters();tick();renderList();return}
   if(a==='watch'){toggleWatch(id,b);return}
@@ -1059,24 +1136,18 @@ function toggleWatch(id,b){
 }
 async function lookupTrack(o){
   const k=o.id.slice(1),now=Date.now();if(!/^[0-9a-f]{6}$/.test(k)||now-(TRKT[k]||0)<12e4)return;TRKT[k]=now;
-  // Whole flight first: adsb.lol keeps a full-day trace for every aircraft. Fall back to our own area log.
-  const full=await fullTrace(k);if(full&&full.length>1){TRK[k]=full;return}
+  // Whole flight first (OpenSky track from takeoff). Fall back to our own area log.
+  const full=await fullTrace(k);if(full&&full.length>1){TRK[k]=full;if(S.detail==='a'+k){const el=$('#d-route'),cur=find('a'+k);if(el&&cur)el.innerHTML=routeHtml(cur)}return}
   try{const r=await fetch('api/track?hex='+k);if(!r.ok)return;const j=await r.json();if(Array.isArray(j.pts))TRK[k]=j.pts}catch(e){}
 }
 // Reads the readsb trace (entries are [seconds after timestamp, lat, lon, alt ft or "ground", gs, track, flags, ...])
 // and keeps the current flight: everything since the last ground contact, new-leg flag or 45-minute gap.
 async function fullTrace(k){
-  try{const r=await fetch('feed/trace/'+k.slice(-2)+'/trace_full_'+k+'.json');if(!r.ok)return null;return traceLeg(await r.json())}catch(e){return null}
+  // The current flight from takeoff, via the OpenSky Network (relayed by api/trace).
+  try{const r=await fetch('api/trace?hex='+k);if(!r.ok)return null;const j=await r.json();const pts=Array.isArray(j.pts)?j.pts:[];
+    TRKSTART[k]=pts.length?pts[0]:null;return pts.map(p=>[p[0],p[1],p[2],p[3]])}catch(e){return null}
 }
-function traceLeg(j){
-  if(!j||!Array.isArray(j.trace))return null;const base=(+j.timestamp||0)*1000;let pts=[],lastT=0,lastAlt=0;
-  for(const e of j.trace){const t=base+(+e[0]||0)*1000;
-    if(e[3]==='ground'||(e[6]&2)||(lastT&&t-lastT>27e5)){pts=[];lastAlt=0}
-    lastT=t;if(e[3]==='ground'||e[1]==null||e[2]==null)continue;
-    const alt=typeof e[3]==='number'?e[3]:lastAlt;lastAlt=alt;pts.push([t,+e[1],+e[2],alt])}
-  if(pts.length>1500){const n=Math.ceil(pts.length/1500),last=pts[pts.length-1];pts=pts.filter((_,i)=>i%n===0);if(pts[pts.length-1]!==last)pts.push(last)}
-  return pts;
-}
+const TRKSTART={};
 // Line the ring up with something whose true position is known (Sun, Moon or a tracked aircraft),
 // then shift the compass and tilt by the difference.
 function doAlign(){
@@ -1146,7 +1217,7 @@ async function openTail(k){
 }
 function exportCsv(){
   if(!LOG.length)return toast('Your logbook is empty');
-  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"',csv=['Date (UTC),Callsign,Aircraft,Kind,Type code,Rarity,Points,Altitude ft,Distance mi'].concat(LOG.map(x=>[new Date(x.ts).toISOString(),x.cs,x.name,x.kind,x.type,TIER[x.tier],x.pts,x.ft,(x.mi||0).toFixed(1)].map(q).join(','))).join('\n');
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"',csv=['Date (UTC),Callsign,Tail number,ICAO hex,Aircraft,Kind,Type code,Route,Owner,Rarity,Points,Altitude ft,Distance mi'].concat(LOG.map(x=>[new Date(x.ts).toISOString(),x.cs,x.reg||'',(x.hex||'').toUpperCase(),x.name,x.kind,x.type,x.route||'',x.owner||'',TIER[x.tier],x.pts,x.ft,(x.mi||0).toFixed(1)].map(q).join(','))).join('\n');
   try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='overhead-logbook.csv';document.body.appendChild(a);a.click();a.remove();toast('Logbook exported')}catch(e){toast('Export is not available here')}
 }
 const pushOn=()=>{try{return localStorage.getItem('overhead.push')==='1'}catch(e){return false}};
