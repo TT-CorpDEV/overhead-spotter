@@ -191,7 +191,10 @@ input[type=range]{width:100%;accent-color:var(--amber)}
 #toast.tap{cursor:pointer;box-shadow:0 0 0 2px var(--gold)}
 #toast .go{display:block;font-size:12px;font-weight:400;margin-top:2px}
 .sharecard{display:block;width:100%;max-width:420px;margin:4px auto 14px;border:1px solid var(--line-2);background:#000}
-.item .rm{margin-left:8px;flex:none}
+.item:has(.rm){grid-template-columns:auto 1fr auto auto}
+.item .btn.rm{padding:8px 9px;font-size:10px;letter-spacing:.12em}
+.hbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.hbtns .btn{min-width:0;padding:12px 8px;letter-spacing:.14em}
 button.item{width:100%;text-align:left;font:inherit;color:inherit}
 .icon-btn{position:relative}
 .dotn{position:absolute;top:6px;right:6px;width:9px;height:9px;border-radius:50%;background:var(--t4)}
@@ -923,7 +926,7 @@ function renderList(){
 function renderHangar(){
   const pts=LOG.reduce((s,x)=>s+x.pts,0),lvl=Math.floor(Math.sqrt(pts/50))+1,lo=50*(lvl-1)**2,hi=50*lvl**2,types=new Set(LOG.filter(x=>x.type&&TYPES[x.type]).map(x=>x.type)),nT=Object.keys(TYPES).length;
   const got=BADGES.filter(b=>b[3](LOG)).length;
-  $('#v-hangar').innerHTML='<div class="row" style="margin-bottom:16px"><button class="btn" data-act="pickform">Pick up a flight</button><button class="btn" data-act="alog">Area log, 24/7</button><button class="btn" data-act="gps">GPS above you</button><button class="btn" data-act="csv">Export logbook</button></div><div id="h-pick">'+pickHtml()+'</div><div id="h-sky">'+skyHtml()+'</div>'+clubHtml()+watchHtml()+'<h2>Spotter rank</h2><div class="score"><div><span class="lbl">Level</span><b>'+lvl+'</b></div><div><span class="lbl">Points</span><b>'+num(pts)+'</b></div><div><span class="lbl">Catches</span><b>'+LOG.length+'</b></div></div>'
+  $('#v-hangar').innerHTML='<div class="hbtns"><button class="btn" data-act="pickform">Pick up a flight</button><button class="btn" data-act="alog">Area log, 24/7</button><button class="btn" data-act="gps">GPS above you</button><button class="btn" data-act="csv">Export logbook</button></div><div id="h-pick">'+pickHtml()+'</div><div id="h-sky">'+skyHtml()+'</div>'+clubHtml()+watchHtml()+'<h2>Spotter rank</h2><div class="score"><div><span class="lbl">Level</span><b>'+lvl+'</b></div><div><span class="lbl">Points</span><b>'+num(pts)+'</b></div><div><span class="lbl">Catches</span><b>'+LOG.length+'</b></div></div>'
    +'<div class="bar" aria-label="Progress to next level"><i style="width:'+Math.round((pts-lo)/(hi-lo)*100)+'%"></i></div><p class="note">'+num(hi-pts)+' points to level '+(lvl+1)+'. Rare catches are worth '+PTS[3]+', Epic '+PTS[4]+'.</p>'
    +'<h2>Badges · '+got+' of '+BADGES.length+'</h2><div class="badges">'+BADGES.map(b=>{const on=b[3](LOG);return'<div class="badge'+(on?' on':'')+'"><em>'+(on?'Earned':'Locked')+'</em><b>'+b[1]+'</b><span>'+b[2]+'</span></div>'}).join('')+'</div>'
    +'<h2>Type guide · '+types.size+' of '+nT+'</h2><div class="bar"><i style="width:'+Math.round(types.size/nT*100)+'%"></i></div>'
@@ -1457,7 +1460,7 @@ function skyHtml(){
   if(Date.now()-skyT>18e5){skyT=Date.now();fetch('api/sky').then(r=>r.ok?r.json():null).then(j=>{if(!j)return;SKYL=j.launches||[];const el=$('#h-sky');if(el)el.innerHTML=skyHtml()}).catch(()=>{})}
   const l=(SKYL||[]).find(x=>x.net>Date.now()-36e5);if(!l)return'';
   const when=new Date(l.net).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}),c=celestial(l.net,S.obs.lat,S.obs.lon).sun[1],glow=c<-2&&c>-20;
-  return'<h2>Next launch</h2><div class="list"><div class="item"><i class="dot" style="background:var(--amber)"></i><span class="mid"><b>'+esc(l.name||'Launch')+'</b><span>Vandenberg · '+esc(when)+(l.status?' · '+esc(l.status):'')+'</span></span><span class="end"><b>'+(glow?'Twilight':c>=-2?'Daytime':'After dark')+'</b>'+(glow?'may glow S':'plume not lit')+'</span></div></div>'+(glow?'<p class="note">This one is in twilight here, when a rocket plume can catch sunlight and glow low in the south. You will get an alert about 25 minutes before.</p>':'');
+  return'<h2>Next launch</h2><div class="list"><div class="item"><i class="dot" style="background:var(--amber)"></i><span class="mid"><b>'+esc(((l.name||'Launch').split(' | ')[1])||l.name||'Launch')+'</b><span>'+esc(/ \| /.test(l.name||'')?l.name.split(' | ')[0].replace(/ Block \d+$/,'')+' · ':'')+'Vandenberg · '+esc(when)+(l.status?' · '+esc(l.status):'')+'</span></span><span class="end"><b>'+(glow?'Twilight':c>=-2?'Daytime':'After dark')+'</b>'+(glow?'may glow S':'plume not lit')+'</span></div></div>'+(glow?'<p class="note">This one is in twilight here, when a rocket plume can catch sunlight and glow low in the south. You will get an alert about 25 minutes before.</p>':'');
 }
 function openGps(){
   const P=$('#detail-p'),g=S.gps||[];S.detail=null;P.classList.remove('peek');
