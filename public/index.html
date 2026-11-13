@@ -118,6 +118,10 @@ h2:first-child{margin-top:0}
 .axis{display:flex;justify-content:space-between;font:400 10px var(--f-data);color:var(--mute);margin-top:4px}
 .wstar{color:var(--gold)}
 .wrow{display:flex;gap:8px;align-items:center}
+.rank{font:700 13px var(--f-data);color:var(--mute);width:22px;text-align:center;flex:none}
+.item.me{border-color:var(--gold)}
+.field{display:flex;flex-direction:column;gap:6px;margin:6px 0 14px}
+.field input{padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);font:inherit}
 .wrow .item{flex:1;min-width:0}
 .item .mid .wstar{display:inline}
 .empty{color:var(--mute);background:var(--panel);border:1px dashed var(--line);border-radius:12px;padding:14px}
@@ -231,7 +235,7 @@ input[type=range]{width:100%;accent-color:var(--amber)}
     <input type="range" id="fov" min="40" max="80" value="60">
     <p class="note">If labels drift off the real aircraft as you pan, adjust this until they stay put.</p>
     <h2>Where data comes from</h2>
-    <p class="note">Aircraft: community ADS-B receiver networks. Satellites: orbital elements from CelesTrak. Sun and Moon: computed on your phone. Live mode sends your rounded position to the flight feed to ask what is nearby. Ships need an AIS data key and are not shown yet. Owner, model and photo come from public aircraft registry records. Your logbook and sighting counts are saved in this browser only.</p>
+    <p class="note">Aircraft: community ADS-B receiver networks <a href="https://adsb.fi" target="_blank" rel="noopener" style="color:var(--lock)">adsb.fi</a> and <a href="https://adsb.lol" target="_blank" rel="noopener" style="color:var(--lock)">adsb.lol</a>. Satellites: orbital elements from CelesTrak. Sun and Moon: computed on your phone. Live mode sends your rounded position to the flight feed to ask what is nearby. Ships need an AIS data key and are not shown yet. Owner, model and photo come from public aircraft registry records. Your logbook and sighting counts are saved in this browser only.</p>
   </div></div>
 
   <div id="toast" hidden role="status"></div>
@@ -547,7 +551,7 @@ function openMap(){
   if(!MAP){
     MAP=L.map('map',{zoomControl:false,center:[S.obs.lat,S.obs.lon],zoom:10,minZoom:3,maxZoom:16,worldCopyJump:true});
     MAP.attributionControl.setPrefix(false);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(MAP);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors · Flight data <a href="https://adsb.fi" target="_blank" rel="noopener">adsb.fi</a>'}).addTo(MAP);
     MAP.on('click',e=>{const p=e.containerPoint;let b=null,bd=34;for(const h of MHITS){const d=Math.hypot(h[0]-p.x,h[1]-p.y);if(d<bd){bd=d;b=h[2]}}if(b)openDetail(b)});
     MAP.on('moveend',()=>{clearTimeout(mapT);mapT=setTimeout(()=>{if(S.mode==='live'&&S.view==='map')poll()},1200)});
   }
@@ -602,7 +606,7 @@ function updRare(){
   if(el.dataset.id!==r.id||el.hidden){el.dataset.id=r.id;el.innerHTML='<b>'+TIER[r.tier]+' overhead</b>'+esc(typeName(r))+' · Find it';el.hidden=false}
 }
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3800)}
-function setView(v){S.view=v;for(const n of['point','radar','map','list','hangar'])$('#v-'+n).hidden=n!==v;$$('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.view===v));if(v==='map')openMap();if(v==='list')renderList();if(v==='hangar')renderHangar()}
+function setView(v){S.view=v;for(const n of['point','radar','map','list','hangar'])$('#v-'+n).hidden=n!==v;$$('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.view===v));if(v==='map')openMap();if(v==='list')renderList();if(v==='hangar'){renderHangar();clubSync(true)}}
 function renderFilters(){$('#mfilters').innerHTML=$('#filters').innerHTML=Object.keys(KIND).map(k=>'<button data-filter="'+k+'" aria-pressed="'+!!S.filters[k]+'"><i class="dot" style="background:var(--k-'+k+')"></i>'+KIND[k]+(k==='sky'?'':'s')+'</button>').join('')+'<button data-act="gnd" aria-pressed="'+!!S.showGnd+'">Parked aircraft</button>'}
 function renderList(){
   const qq=($('#q').value||'').toUpperCase().replace(/\s+/g,''),l=S.objs.filter(o=>!qq||[o.cs,o.reg,o.type,o.op,typeName(o)].join('|').toUpperCase().replace(/\s+/g,'').includes(qq)).sort((a,b)=>(b.w|0)-(a.w|0)||(isFinite(a.dist)?a.dist:9e12)-(isFinite(b.dist)?b.dist:9e12));
@@ -612,7 +616,7 @@ function renderList(){
 function renderHangar(){
   const pts=LOG.reduce((s,x)=>s+x.pts,0),lvl=Math.floor(Math.sqrt(pts/50))+1,lo=50*(lvl-1)**2,hi=50*lvl**2,types=new Set(LOG.filter(x=>x.type&&TYPES[x.type]).map(x=>x.type)),nT=Object.keys(TYPES).length;
   const got=BADGES.filter(b=>b[3](LOG)).length;
-  $('#v-hangar').innerHTML='<div class="row" style="margin-bottom:16px"><button class="btn" data-act="alog">Area log, 24/7</button><button class="btn" data-act="csv">Export logbook</button></div>'+watchHtml()+'<h2>Spotter rank</h2><div class="score"><div><span class="lbl">Level</span><b>'+lvl+'</b></div><div><span class="lbl">Points</span><b>'+num(pts)+'</b></div><div><span class="lbl">Catches</span><b>'+LOG.length+'</b></div></div>'
+  $('#v-hangar').innerHTML='<div class="row" style="margin-bottom:16px"><button class="btn" data-act="alog">Area log, 24/7</button><button class="btn" data-act="csv">Export logbook</button></div>'+clubHtml()+watchHtml()+'<h2>Spotter rank</h2><div class="score"><div><span class="lbl">Level</span><b>'+lvl+'</b></div><div><span class="lbl">Points</span><b>'+num(pts)+'</b></div><div><span class="lbl">Catches</span><b>'+LOG.length+'</b></div></div>'
    +'<div class="bar" aria-label="Progress to next level"><i style="width:'+Math.round((pts-lo)/(hi-lo)*100)+'%"></i></div><p class="note">'+num(hi-pts)+' points to level '+(lvl+1)+'. Rare catches are worth '+PTS[3]+', Epic '+PTS[4]+'.</p>'
    +'<h2>Badges · '+got+' of '+BADGES.length+'</h2><div class="badges">'+BADGES.map(b=>{const on=b[3](LOG);return'<div class="badge'+(on?' on':'')+'"><em>'+(on?'Earned':'Locked')+'</em><b>'+b[1]+'</b><span>'+b[2]+'</span></div>'}).join('')+'</div>'
    +'<h2>Type guide · '+types.size+' of '+nT+'</h2><div class="bar"><i style="width:'+Math.round(types.size/nT*100)+'%"></i></div>'
@@ -627,6 +631,7 @@ function logCatch(id){
   toast('Logged '+o.cs+'  +'+PTS[o.tier]+(nb.length?' · Badge earned: '+nb.join(', '):''));
   try{navigator.vibrate&&navigator.vibrate([20,40,20])}catch(e){}
   if(cardId===o.id)updLogBtn(o);if(S.detail===id)openDetail(id);
+  clubSync();
 }
 function openDetail(id){
   const o=find(id);if(!o)return;S.detail=S.focus=id;const T=TYPES[o.type],done=logged(o),air=o.kind==='plane'||o.kind==='heli';
@@ -736,6 +741,10 @@ document.addEventListener('click',e=>{
   if(b.dataset.range){S.range=+b.dataset.range;save();updRange();if(S.mode==='live')poll();return}
   if(b.dataset.filter){S.filters[b.dataset.filter]^=1;renderFilters();tick();renderList();return}
   if(a==='watch'){toggleWatch(id,b);return}
+  if(a==='club-start'){clubForm('create');return}
+  if(a==='club-invite'){clubInvite();return}
+  if(a==='club-name'){clubForm('rename');return}
+  if(a==='club-leave'){if(b.dataset.sure)clubLeave();else{b.dataset.sure=1;b.textContent='Tap again to leave'}return}
   if(a==='wfind'){findWatched(b.dataset.hex);return}
   if(a==='wdel'){const k=b.dataset.hex;WATCH.delete(k);delete WINFO[k];saveWatch();saveWinfo();renderHangar();toast('Removed from your watchlist');if(pushOn())syncPush().catch(()=>{});return}
   if(a==='alog'){openAreaLog();return}
@@ -753,7 +762,7 @@ document.addEventListener('click',e=>{
   else if(a==='settings'){renderSensors();$('#settings').hidden=false}
   else if(a==='live')goLive();
   else if(a==='north'){S.northUp=!S.northUp;b.setAttribute('aria-pressed',S.northUp)}
-  else if(a==='reset'){if(b.dataset.sure){LOG=[];save();renderHangar();toast('Logbook cleared')}else{b.dataset.sure=1;b.textContent='Tap again to clear everything'}}
+  else if(a==='reset'){if(b.dataset.sure){LOG=[];save();renderHangar();clubSync();toast('Logbook cleared')}else{b.dataset.sure=1;b.textContent='Tap again to clear everything'}}
 });
 $$('.sheet').forEach(s=>s.addEventListener('click',e=>{if(e.target===s){s.hidden=true;S.detail=null}}));
 function updRange(){$$('#range button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.range===S.range))}
@@ -802,6 +811,59 @@ async function findWatched(k){
     if(!o){const i=WINFO[k]||{};return toast((i.reg||i.cs||k.toUpperCase())+' is not flying right now')}
   }
   setView('map');if(MAP&&o.lat!=null)MAP.setView([o.lat,o.lon],Math.max(MAP.getZoom(),9));openDetail(o.id);
+}
+/* ---------- friends club leaderboard ---------- */
+let CLUB=null,BOARD=null,clubT=0;try{CLUB=JSON.parse(localStorage.getItem('overhead.club')||'null')}catch(e){}
+const saveClub=()=>{try{CLUB?localStorage.setItem('overhead.club',JSON.stringify(CLUB)):localStorage.removeItem('overhead.club')}catch(e){}};
+async function clubApi(op,body){
+  const r=await fetch('api/club/'+op,body?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}:undefined);
+  let j={};try{j=await r.json()}catch(e){}
+  if(!r.ok)throw new Error(j.error||'The club could not be reached. Try again in a minute.');return j;
+}
+function clubHtml(){
+  if(!HOSTED&&!/^localhost/.test(location.host))return'';
+  if(!CLUB)return'<h2>Club leaderboard</h2><p class="note" style="margin-top:0">Compete with friends on points and badges. Start a club, then send the invite link to your friends.</p><div class="row" style="margin-bottom:6px"><button class="btn go" data-act="club-start">Start a club</button></div>';
+  const rows=(BOARD||[]).map((p,i)=>{const me=p.pid===CLUB.pid,b=p.best;
+    return'<div class="item'+(me?' me':'')+'"><span class="rank">'+(i+1)+'</span><span class="mid"><b>'+esc(p.name)+(me?' (you)':'')+'</b><span>Level '+p.lvl+' · '+p.n+(p.n===1?' catch':' catches')+' · '+p.badges+(p.badges===1?' badge':' badges')+(b?' · Best: '+esc(TIER[b.tier])+' '+esc(b.name||b.cs):'')+'</span></span><span class="end"><b>'+num(p.pts)+'</b>points</span></div>'}).join('');
+  return'<h2>Club leaderboard</h2><div class="list" id="club-board">'+(BOARD?rows||'<div class="empty">Nobody has logged a catch yet.</div>':'<p class="note">Loading the leaderboard.</p>')+'</div>'
+    +'<div class="row" style="margin:10px 0 6px"><button class="btn" data-act="club-invite">Invite friends</button><button class="btn sm" data-act="club-name">Change name</button><button class="btn sm" data-act="club-leave">Leave</button></div>';
+}
+function clubPayload(){return{code:CLUB.code,pid:CLUB.pid,token:CLUB.token,name:CLUB.name,badges:BADGES.filter(b=>b[3](LOG)).length,log:LOG.map(x=>({k:x.key,tier:x.tier,cs:x.cs,name:x.name,t:x.ts}))}}
+async function clubSync(now){
+  if(!CLUB)return;clearTimeout(clubT);
+  const go=async()=>{try{const j=await clubApi('sync',clubPayload());BOARD=j.players;if(S.view==='hangar')renderHangar()}catch(e){if(/not found|not valid/.test(e.message)){CLUB=null;BOARD=null;saveClub();if(S.view==='hangar')renderHangar()}toast(e.message)}};
+  if(now)return go();clubT=setTimeout(go,1500);
+}
+function clubForm(kind){
+  S.detail=null;const P=$('#detail-p'),title=kind==='create'?'Start a club':kind==='join'?'Join the club':'Change your name';
+  P.innerHTML='<div class="sheet-h"><div><h1>'+title+'</h1><p>'+(kind==='rename'?'This is how friends see you on the leaderboard.':'Pick the name your friends will see on the leaderboard.')+'</p></div><button class="icon-btn" data-act="close" aria-label="Close">✕</button></div>'
+    +'<form id="club-form" data-kind="'+kind+'"><label class="field"><span class="lbl">Your name</span><input id="club-nm" maxlength="20" autocomplete="nickname" required value="'+esc((CLUB&&CLUB.name)||'')+'"></label><div class="row"><button class="btn go" type="submit">'+(kind==='create'?'Start club':kind==='join'?'Join':'Save name')+'</button></div></form>';
+  $('#detail').hidden=false;setTimeout(()=>{try{$('#club-nm').focus()}catch(e){}},50);
+}
+document.addEventListener('submit',async e=>{
+  if(e.target.id!=='club-form')return;e.preventDefault();
+  const kind=e.target.dataset.kind,name=$('#club-nm').value.trim(),btn=e.target.querySelector('button');if(!name)return;btn.disabled=true;
+  try{
+    if(kind==='rename'){CLUB.name=name;saveClub();await clubSync(true);toast('Name saved')}
+    else{const j=await clubApi(kind,kind==='join'?{code:S.joinCode,name}:{name});CLUB={code:j.code,pid:j.pid,token:j.token,name:j.name};saveClub();await clubSync(true);toast(kind==='create'?'Club started. Tap Invite friends to share it.':'You joined the club')}
+    $('#detail').hidden=true;setView('hangar');
+  }catch(err){toast(err.message);btn.disabled=false}
+});
+async function clubInvite(){
+  const link=location.origin+'/#join-'+CLUB.code,text='Join my Overhead Spotter club and see who catches the rarest aircraft: '+link;
+  try{if(navigator.share){await navigator.share({title:'Overhead Spotter club',text,url:link});return}}catch(e){if(e&&e.name==='AbortError')return}
+  try{await navigator.clipboard.writeText(link);toast('Invite link copied. Paste it in a text to your friends.')}catch(e){toast('Invite link: '+link)}
+}
+async function clubLeave(){
+  try{await clubApi('leave',{code:CLUB.code,pid:CLUB.pid,token:CLUB.token})}catch(e){}
+  CLUB=null;BOARD=null;saveClub();renderHangar();toast('You left the club');
+}
+function clubBoot(){
+  const m=/^#join-([A-Za-z0-9_-]{4,40})$/.exec(location.hash);
+  if(m){try{history.replaceState(null,'',location.pathname)}catch(e){}
+    if(CLUB&&CLUB.code===m[1])toast('You are already in this club');
+    else{S.joinCode=m[1];setView('hangar');clubForm('join')}}
+  if(CLUB)clubSync(true);
 }
 const kc=o=>o.emg?COL.t4:o.w?COL.gold:COL[o.kind];
 const RMO=(()=>{try{return matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){return false}})();
@@ -890,6 +952,7 @@ updAlign();updPush();
 $('#fov').value=S.fov;$('#fov-v').textContent=S.fov+'°';
 renderFilters();updRange();updPath();renderSensors();tick();
 goLive();
+clubBoot();
 document.addEventListener('click',()=>{try{if(!S.sens&&typeof DeviceOrientationEvent!=='undefined'&&DeviceOrientationEvent.requestPermission)DeviceOrientationEvent.requestPermission().catch(()=>{})}catch(e){}},{once:true});
 setInterval(tick,250);
 setInterval(()=>{if(S.view==='list'&&!pdown)renderList()},1500);
