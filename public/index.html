@@ -546,23 +546,56 @@ function celestial(date,lat,lon){
   return{sun:pos(ra(L,0),dec(L,0)),moon:pos(ra(l,b),dec(l,b))};
 }
 
+/* ---------- planets and bright stars ---------- */
+// Planets from low-precision orbital elements (Schlyter); good to about a degree, plenty for pointing a phone.
+const PL={MERCURY:[48.3313,3.24587e-5,7.0047,5e-8,29.1241,1.01444e-5,.387098,.205635,5.59e-10,168.6562,4.0923344368],
+  VENUS:[76.6799,2.4659e-5,3.3946,2.75e-8,54.891,1.38374e-5,.72333,.006773,-1.302e-9,48.0052,1.6021302244],
+  MARS:[49.5574,2.11081e-5,1.8497,-1.78e-8,286.5016,2.92961e-5,1.523688,.093405,2.516e-9,18.6021,.5240207766],
+  JUPITER:[100.4542,2.76854e-5,1.303,-1.557e-7,273.8777,1.64505e-5,5.20256,.048498,4.469e-9,19.895,.0830853001],
+  SATURN:[113.6634,2.3898e-5,2.4886,-1.081e-7,339.3939,2.97661e-5,9.55475,.055546,-9.499e-9,316.967,.0334442282]};
+const BSTARS=[['SIRIUS',6.7525,-16.716,-1.46],['ARCTURUS',14.261,19.182,-.05],['VEGA',18.616,38.784,.03],['CAPELLA',5.278,45.998,.08],['RIGEL',5.242,-8.202,.13],['PROCYON',7.655,5.225,.34],['BETELGEUSE',5.919,7.407,.5],['ALTAIR',19.846,8.868,.76],['ALDEBARAN',4.599,16.509,.87],['SPICA',13.42,-11.161,.97],['ANTARES',16.49,-26.432,1.06],['POLLUX',7.755,28.026,1.14],['DENEB',20.69,45.28,1.25],['REGULUS',10.14,11.967,1.35],['POLARIS',2.53,89.264,1.98]];
+const SKYTIER={MERCURY:3,MARS:2,SATURN:2,POLARIS:2};
+const SKYFACT={VENUS:'The brightest thing in the night sky after the Moon. People often mistake it for an airplane landing light because it barely moves.',JUPITER:'The largest planet. Even small binoculars show up to four of its moons as tiny dots beside it.',MARS:'Its reddish color comes from iron oxide, rust, in its dust.',SATURN:'A steady, slightly golden point. A small telescope shows the rings.',MERCURY:'Hard to catch: it never gets far from the Sun, so look low in twilight.',SIRIUS:'The brightest star in the night sky, 8.6 light-years away. It twinkles in many colors when low.',POLARIS:'The North Star. It barely moves all night, so it marks true north.',ARCTURUS:'An orange giant, the brightest star in the northern half of the sky.',VEGA:'A bright blue-white star overhead on summer evenings.',BETELGEUSE:'A red supergiant in Orion that will one day explode as a supernova.',RIGEL:'A blue supergiant at the foot of Orion.'};
+function skyBodies(t,lat,lon,sunEl){
+  const out=[],dd=t/864e5-0.5+2440588-2451545,th=D*(280.16+360.9856235*dd)+lon*D,phi=lat*D;
+  const azel=(ra,de)=>{const H=th-ra;return[(Math.atan2(Math.sin(H),Math.cos(H)*Math.sin(phi)-Math.tan(de)*Math.cos(phi))/D+180+360)%360,Math.asin(Math.sin(phi)*Math.sin(de)+Math.cos(phi)*Math.cos(de)*Math.cos(H))/D]};
+  if(sunEl<-2){const d=t/864e5+2440587.5-2451543.5,ecl=(23.4393-3.563e-7*d)*D;
+    const kep=(M,e)=>{let E=M+e*Math.sin(M)*(1+e*Math.cos(M));for(let k=0;k<5;k++)E=E-(E-e*Math.sin(E)-M)/(1-e*Math.cos(E));return E};
+    const sw=(282.9404+4.70935e-5*d)*D,se=.016709-1.151e-9*d,sM=(356.047+.9856002585*d)*D,sE=kep(sM,se),sx=Math.cos(sE)-se,sy=Math.sqrt(1-se*se)*Math.sin(sE),sv=Math.atan2(sy,sx),sr=Math.hypot(sx,sy),xs=sr*Math.cos(sv+sw),ys=sr*Math.sin(sv+sw);
+    for(const n in PL){const q=PL[n],N=(q[0]+q[1]*d)*D,i=(q[2]+q[3]*d)*D,w=(q[4]+q[5]*d)*D,a=q[6],e=q[7]+q[8]*d,M=((q[9]+q[10]*d)%360)*D,E=kep(M,e);
+      const xv=a*(Math.cos(E)-e),yv=a*Math.sqrt(1-e*e)*Math.sin(E),v=Math.atan2(yv,xv),r=Math.hypot(xv,yv);
+      const xh=r*(Math.cos(N)*Math.cos(v+w)-Math.sin(N)*Math.sin(v+w)*Math.cos(i)),yh=r*(Math.sin(N)*Math.cos(v+w)+Math.cos(N)*Math.sin(v+w)*Math.cos(i)),zh=r*Math.sin(v+w)*Math.sin(i);
+      const xg=xh+xs,yg=yh+ys,zg=zh,ye=yg*Math.cos(ecl)-zg*Math.sin(ecl),ze=yg*Math.sin(ecl)+zg*Math.cos(ecl);
+      if(n==='MERCURY'&&sunEl<-12)continue;
+      out.push({id:'p:'+n,kind:'sky',cs:n,name:n[0]+n.slice(1).toLowerCase()+' (planet)',fix:azel(Math.atan2(ye,xg),Math.atan2(ze,Math.hypot(xg,ye)))})}}
+  if(sunEl<-8)for(const st of BSTARS)out.push({id:'st:'+st[0],kind:'sky',cs:st[0],name:st[0][0]+st[0].slice(1).toLowerCase()+' (star)',fix:azel(st[1]*15*D,st[2]*D)});
+  return out;
+}
 /* ---------- objects ---------- */
-function tierOf(o){if(o.emg)return 4;if(o.kind==='plane'||o.kind==='heli')return Math.max((TYPES[o.type]||[])[8]||1,o.mil?3:0);if(o.kind==='sat')return /^(ISS|CSS)/.test(o.cs)?3:2;if(o.kind==='ship')return 2;return 1}
+function tierOf(o){if(o.emg)return 4;if(o.kind==='plane'||o.kind==='heli')return Math.max((TYPES[o.type]||[])[8]||1,o.mil?3:0);if(o.kind==='sat')return /^(ISS|CSS)/.test(o.cs)||o.grp==='starlink'||o.grp==='decay'?3:2;if(o.kind==='ship')return 2;return SKYTIER[o.cs]||1}
 const typeName=o=>(TYPES[o.type]||[])[0]||o.name||o.desc||o.type||KIND[o.kind];
 // One catch per airframe: aircraft are keyed by their permanent ICAO address. Older catches used the tail number or
 // callsign, so those keys still count as caught.
 const legacyKey=o=>o.kind+':'+(o.reg||o.cs||o.id);
 const keyOf=o=>(o.kind==='plane'||o.kind==='heli')&&/^a[0-9a-f]{6}$/.test(o.id)?'ac:'+o.id.slice(1):legacyKey(o);
 const logged=o=>{const k=keyOf(o),l=legacyKey(o),h=o.id&&o.id[0]==='a'?o.id.slice(1):'';return LOG.some(x=>x.key===k||x.key===l||(h&&x.hex===h))};
+// Satellites: is it in sunlight, and is it dark enough here to see it?
+const SATGRP={station:'Space station',visual:'Satellite',gps:'GPS satellite',starlink:'Starlink train',decay:'Reentering soon'};
+const SATMAG={station:-1.8,visual:3.5,gps:11,starlink:3,decay:5};
+function sunEci(t){const d=t/864e5-10957.5,L=(280.46+0.9856474*d)*D,g=(357.528+0.9856003*d)*D,l=L+(1.915*Math.sin(g)+0.02*Math.sin(2*g))*D,e=23.439*D;return[Math.cos(l),Math.sin(l)*Math.cos(e),Math.sin(l)*Math.sin(e)]}
+function sunlit(r,s){if(!r)return false;const k=r.x*s[0]+r.y*s[1]+r.z*s[2];if(k>0)return true;const px=r.x-k*s[0],py=r.y-k*s[1],pz=r.z-k*s[2];return Math.hypot(px,py,pz)>6371}
+function satMag(o){if(o.cs.startsWith('ISS'))return -1.8+5*Math.log10(Math.max(o.dist||1e6,1e5)/1e6);return(SATMAG[o.grp]??4)+5*Math.log10(Math.max(o.dist||1e6,1e5)/1e6)}
+function satVisText(o){if(o.kind!=='sat')return'';if(o.vis==='day')return'Daylight: wait until dark';if(o.vis==='shadow')return"In Earth's shadow";const m=satMag(o);return m<0?'Visible · very bright':m<2.5?'Visible · bright':m<4.5?'Visible · easy to see':m<6?'Visible · faint':'Too faint for the eye'}
 function liveObjs(now){
   const out=[];
   for(const k in S.live){const o=S.live[k],dt=(now-o.t)/1000;if(dt>60){delete S.live[k];continue}
     const p=adv(o.lat0,o.lon0,o.alt0,o.gs,o.trk,o.vr,dt);out.push({...o,lat:p[0],lon:p[1],alt:Math.max(0,p[2])})}
   if(window.satellite&&S.sats.length){
-    const at=t=>{const g=satellite.gstime(t);return r=>{const pv=satellite.propagate(r,t);if(!pv||!pv.position)return null;const q=satellite.eciToGeodetic(pv.position,g);return[q.latitude/D,q.longitude/D,q.height*1000]}};
-    const t1=new Date(now),t2=new Date(now+5000),f1=at(t1),f2=at(t2);
+    const at=t=>{const g=satellite.gstime(t);return r=>{const pv=satellite.propagate(r,t);if(!pv||!pv.position)return null;const q=satellite.eciToGeodetic(pv.position,g);return[q.latitude/D,q.longitude/D,q.height*1000,pv.position]}};
+    const t1=new Date(now),t2=new Date(now+5000),f1=at(t1),f2=at(t2),sunV=sunEci(now),dark=celestial(now,S.obs.lat,S.obs.lon).sun[1]<-6;
     for(const s of S.sats){try{const a=f1(s.rec),b=f2(s.rec);if(!a||!b)continue;
-      const o={id:'s'+s.name,kind:'sat',cs:s.name,name:'Satellite',op:'',lat:a[0],lon:a[1],alt:a[2],ahead:b};
+      const lit=sunlit(a[3],sunV);
+      const o={id:'s'+s.name,kind:'sat',cs:s.name,name:SATGRP[s.grp]||'Satellite',op:'',grp:s.grp,norad:s.norad,lat:a[0],lon:a[1],alt:a[2],ahead:b,lit,vis:!dark?'day':lit?'vis':'shadow'};
       const v1=ecef(a[0],a[1],a[2]),v2=ecef(b[0],b[1],b[2]);o.gs=Math.hypot(v2[0]-v1[0],v2[1]-v1[1],v2[2]-v1[2])/5/0.5144;
       out.push(o)}catch(e){}}
   }
@@ -634,12 +667,13 @@ async function lookupAir(o){
 function tick(){
   const now=Date.now();let list=liveObjs(now);
   const c=celestial(now,S.obs.lat,S.obs.lon);
-  list.push({id:'sun',kind:'sky',cs:'SUN',name:'The Sun',fix:c.sun},{id:'moon',kind:'sky',cs:'MOON',name:'The Moon',fix:c.moon});
+  list.push({id:'sun',kind:'sky',cs:'SUN',name:'The Sun',fix:c.sun},{id:'moon',kind:'sky',cs:'MOON',name:'The Moon',fix:c.moon},...skyBodies(now,S.obs.lat,S.obs.lon,c.sun[1]));
   for(const o of list){geo(o);o.tier=tierOf(o)}
   for(const o of list)if(o.id[0]==='a'){o.w=WATCH.has(o.id.slice(1));o.fire=isFire(o);if(o.w||o.emg||o.fire)announce(o)}
   if(S.alignAt&&now>S.alignAt)doAlign();
   if(S.mode==='live'){for(const o of list)if(o.id[0]==='a'&&o.g<40234)noteSeen(o.id.slice(1),now);if(seenDirty&&now-seenT>20000)saveSeen(now)}
-  S.all=list.filter(o=>!(o.kind==='sat'||o.kind==='sky')||o.el>0);
+  S.gps=list.filter(o=>o.grp==='gps'&&o.el>0).sort((a,b)=>b.el-a.el);
+  S.all=list.filter(o=>o.grp!=='gps'&&(!(o.kind==='sat'||o.kind==='sky')||o.el>0));
   S.objs=S.all.filter(o=>S.filters[o.kind]&&(S.showGnd||!o.gnd)&&(!o.cat||o.w||S.cats[o.cat]));
   if(S.lock&&!find(S.lock)){S.lock=null}
   if(S.sel&&!find(S.sel)){S.sel=null}
@@ -876,7 +910,7 @@ function renderList(){
 function renderHangar(){
   const pts=LOG.reduce((s,x)=>s+x.pts,0),lvl=Math.floor(Math.sqrt(pts/50))+1,lo=50*(lvl-1)**2,hi=50*lvl**2,types=new Set(LOG.filter(x=>x.type&&TYPES[x.type]).map(x=>x.type)),nT=Object.keys(TYPES).length;
   const got=BADGES.filter(b=>b[3](LOG)).length;
-  $('#v-hangar').innerHTML='<div class="row" style="margin-bottom:16px"><button class="btn" data-act="alog">Area log, 24/7</button><button class="btn" data-act="csv">Export logbook</button></div>'+clubHtml()+watchHtml()+'<h2>Spotter rank</h2><div class="score"><div><span class="lbl">Level</span><b>'+lvl+'</b></div><div><span class="lbl">Points</span><b>'+num(pts)+'</b></div><div><span class="lbl">Catches</span><b>'+LOG.length+'</b></div></div>'
+  $('#v-hangar').innerHTML='<div class="row" style="margin-bottom:16px"><button class="btn" data-act="alog">Area log, 24/7</button><button class="btn" data-act="gps">GPS above you</button><button class="btn" data-act="csv">Export logbook</button></div><div id="h-sky">'+skyHtml()+'</div>'+clubHtml()+watchHtml()+'<h2>Spotter rank</h2><div class="score"><div><span class="lbl">Level</span><b>'+lvl+'</b></div><div><span class="lbl">Points</span><b>'+num(pts)+'</b></div><div><span class="lbl">Catches</span><b>'+LOG.length+'</b></div></div>'
    +'<div class="bar" aria-label="Progress to next level"><i style="width:'+Math.round((pts-lo)/(hi-lo)*100)+'%"></i></div><p class="note">'+num(hi-pts)+' points to level '+(lvl+1)+'. Rare catches are worth '+PTS[3]+', Epic '+PTS[4]+'.</p>'
    +'<h2>Badges · '+got+' of '+BADGES.length+'</h2><div class="badges">'+BADGES.map(b=>{const on=b[3](LOG);return'<div class="badge'+(on?' on':'')+'"><em>'+(on?'Earned':'Locked')+'</em><b>'+b[1]+'</b><span>'+b[2]+'</span></div>'}).join('')+'</div>'
    +'<h2>Type guide · '+types.size+' of '+nT+'</h2><div class="bar"><i style="width:'+Math.round(types.size/nT*100)+'%"></i></div>'
@@ -909,13 +943,15 @@ function openDetail(id){
   h+='<div id="d-route">'+routeHtml(o)+'</div><dl class="stats" id="d-live"></dl>';
   // Peek card: the essentials and Log it first; everything else opens with More details or a swipe up.
   h+='<button class="btn go logbig" data-act="log" data-id="'+esc(o.id)+'"'+(done?' disabled':'')+'>'+(done?'In your logbook':'Log it  +'+PTS[o.tier])+'</button>'
-    +'<div class="row" style="margin:8px 0 0"><button class="btn" data-act="guide" data-id="'+esc(o.id)+'">Guide me</button>'+(air?'<button class="btn" data-act="path" data-id="'+esc(o.id)+'" aria-pressed="'+!!S.path+'">Flight path</button><button class="btn" data-act="watch" data-id="'+esc(o.id)+'" aria-pressed="'+(o.id[0]==='a'&&WATCH.has(o.id.slice(1)))+'">Watch</button>':'')+'</div>'
+    +'<div class="row" style="margin:8px 0 0"><button class="btn" data-act="guide" data-id="'+esc(o.id)+'">Guide me</button>'+(air?'<button class="btn" data-act="path" data-id="'+esc(o.id)+'" aria-pressed="'+!!S.path+'">Flight path</button><button class="btn" data-act="watch" data-id="'+esc(o.id)+'" aria-pressed="'+(o.id[0]==='a'&&WATCH.has(o.id.slice(1)))+'">Watch</button>':o.kind==='sat'&&o.norad?'<button class="btn" data-act="swatch" data-norad="'+o.norad+'" aria-pressed="'+SWATCH.has(o.norad)+'">Watch passes</button>':'')+'</div>'
     +'<button class="dmore-btn" data-act="dmore">More details ↑</button><div class="dmore">';
   if(air)h+='<div id="d-air">'+airHtml(o)+'</div>';
   if(T){h+='<h2>About the '+esc(T[0])+'</h2><dl class="spec"><dt>Role</dt><dd>'+T[2]+'</dd><dt>Built by</dt><dd>'+T[1]+'</dd><dt>Power</dt><dd>'+T[3]+'</dd><dt>Carries</dt><dd>'+T[4]+'</dd>'+(T[5]?'<dt>Range</dt><dd>'+num(T[5]*1.1508)+' mi</dd>':'')+'<dt>Flying since</dt><dd>'+T[7]+'</dd><dt>'+(T[10]==='heli'?'Rotor':'Wingspan')+'</dt><dd>'+T[6]+' ft</dd></dl>'
     +'<div class="span-bar"><span class="lbl">Size next to an A380 (261.6 ft)</span><div class="bar"><i style="width:'+Math.round(T[6]/261.6*100)+'%"></i></div></div><p class="fact">'+T[9]+'</p><p class="note">Typical figures. Variants and airline layouts differ.</p>'}
-  else if(o.kind==='sat'){h+='<h2>About this satellite</h2><p class="fact">'+(SATFACT[o.cs.split(' ')[0]]||'Satellites show up best in the hour or two after sunset or before sunrise, when the sky is dark but they still catch sunlight.')+'</p>'}
+  else if(o.kind==='sat'){h+='<h2>Next passes over you</h2><div id="d-pass"><p class="note">Working out passes.</p></div><h2>About this satellite</h2><p class="fact">'+esc(satAbout(o))+'</p><div id="d-satcat"></div>';setTimeout(()=>{fillPasses(o);fillSatcat(o)},30)}
   else if(o.kind==='ship'){h+='<h2>About this vessel</h2><p class="fact">'+esc(o.name)+'. Ships broadcast their position over AIS, the marine cousin of the ADS-B signal aircraft send.</p>'}
+  else if(o.kind==='sky'&&SKYFACT[o.cs]){h+='<h2>About '+esc(o.name.replace(/ \(.*\)/,''))+'</h2><p class="fact">'+SKYFACT[o.cs]+'</p><p class="note">Stars and planets also make a good compass check: if the marker sits on it, your phone is pointing true.</p>'}
+  else if(o.kind==='sky'&&o.id.includes(':')){h+='<h2>Compass check</h2><p class="fact">Aim at '+esc(o.name.replace(/ \(.*\)/,''))+' and see whether its marker sits on top of it. If it does, your compass and zoom are dialed in.</p>'}
   else if(o.kind==='sky'){h+='<h2>Compass check</h2><p class="fact">Aim at '+esc(o.name)+' and see whether its marker sits on top of it. If it does, your compass and zoom are dialed in.'+(o.cs==='SUN'?' Never look straight at the Sun, and do not point your camera at it for long.':'')+'</p>'}
   else if(air){h+='<h2>Aircraft type</h2><p class="note">'+(o.type?'Type code '+esc(o.type)+' is not in the type guide yet.':'This aircraft is not reporting a type code.')+'</p>'}
   if(air&&S.sens)h+='<div class="row" style="margin:14px 0 0"><button class="btn" data-act="alignon" data-id="'+esc(o.id)+'">Align compass on this aircraft</button></div>';
@@ -944,6 +980,36 @@ function guessRoute(o){
     if(best)out.to=PNAME(best[0]),out.toMi=best[1]}
   return out.from||out.to||out.at?out:null;
 }
+// Satellite passes and catalog details
+function satAbout(o){const n=o.cs.toUpperCase();
+  if(SATFACT[n.split(' ')[0]])return SATFACT[n.split(' ')[0]];
+  if(n.startsWith('CSS'))return"China's Tiangong space station, crewed since 2021. It orbits a little lower than the ISS and is almost as bright.";
+  if(o.grp==='starlink')return'Part of the newest SpaceX Starlink launch. For a week or two after launch the satellites fly in a line, a "train" of moving dots, before spreading out and climbing higher.';
+  if(o.grp==='gps')return'One of about 31 GPS satellites, 12,550 miles up. Your phone uses signals from several of them to find your position.';
+  if(o.grp==='decay')return'Its orbit is decaying and it is expected to fall back and burn up in the atmosphere soon. If it reenters at night over land it can look like a slow fireball.';
+  if(/R\/B$/.test(n))return'A spent rocket stage left in orbit after a launch. Big, shiny rocket bodies are often among the easiest satellites to spot.';
+  if(/^COSMOS|^KOSMOS/.test(n))return'A Russian or Soviet government satellite from the long-running Cosmos series, often military.';
+  if(/^NOAA|^GOES|^METOP|^METEOR|^FENGYUN|^DMSP/.test(n))return'A weather satellite, watching clouds, storms and temperatures from orbit.';
+  if(/^HST|HUBBLE/.test(n))return'The Hubble Space Telescope, launched in 1990 and still working.';
+  if(/^ENVISAT/.test(n))return'A large European Earth-observation satellite that went silent in 2012 and still circles as one of the biggest pieces of space debris.';
+  return'Satellites show up best in the hour or two after sunset or before sunrise, when the sky is dark but they still catch sunlight.'}
+function nextPasses(o,hours){
+  const sat=S.sats.find(s=>'s'+s.name===o.id);if(!sat||!window.satellite)return[];
+  const gd={longitude:S.obs.lon*D,latitude:S.obs.lat*D,height:(S.obs.alt||0)/1000},out=[];let cur=null;const t0=Date.now();
+  for(let t=t0;t<t0+hours*36e5;t+=30000){const d=new Date(t),pv=satellite.propagate(sat.rec,d);if(!pv||!pv.position)continue;
+    const la=satellite.ecfToLookAngles(gd,satellite.eciToEcf(pv.position,satellite.gstime(d))),el=la.elevation/D,az=(la.azimuth/D+360)%360;
+    if(el>0){if(!cur)cur={start:t,az0:az,max:el,azMax:az,vis:false,dark:celestial(t,S.obs.lat,S.obs.lon).sun[1]<-6};if(el>cur.max){cur.max=el;cur.azMax=az;cur.tMax=t;cur.dark=celestial(t,S.obs.lat,S.obs.lon).sun[1]<-6}
+      if(!cur.vis&&sunlit(pv.position,sunEci(t))&&celestial(t,S.obs.lat,S.obs.lon).sun[1]<-6)cur.vis=true;cur.end=t;cur.az1=az}
+    else if(cur){if(cur.max>=10)out.push(cur);cur=null;if(out.length>=6)break}}
+  return out}
+function fillPasses(o){const el=$('#d-pass');if(!el)return;const ps=nextPasses(o,36);
+  const tf=t=>new Date(t).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'});
+  el.innerHTML=ps.length?'<div class="list">'+ps.slice(0,5).map(p=>'<div class="item"><i class="dot" style="background:'+(p.vis?'var(--amber)':'var(--line-2)')+'"></i><span class="mid"><b>'+tf(p.start)+'</b><span>'+compass(p.az0)+' to '+compass(p.az1)+' · up to '+Math.round(p.max)+'° high · '+Math.max(1,Math.round((p.end-p.start)/6e4))+' min</span></span><span class="end"><b>'+(p.vis?'Visible':'Not visible')+'</b>'+(p.vis?'look '+compass(p.azMax):p.dark?"in Earth's shadow":'daytime pass')+'</span></div>').join('')+'</div><p class="note">Visible passes are in amber: the satellite is in sunlight while your sky is dark.</p>':'<p class="note">No passes higher than 10° in the next 36 hours.</p>'}
+const SATCAT={},OWNERS={US:'United States',PRC:'China',CIS:'Russia / former USSR',ISS:'International (ISS partners)',ESA:'European Space Agency',JPN:'Japan',IND:'India',FR:'France',UK:'United Kingdom',GER:'Germany',CA:'Canada'};
+async function fillSatcat(o){const el=$('#d-satcat');if(!el||!o.norad)return;
+  try{let r=SATCAT[o.norad];if(!r){const j=await(await fetch('https://celestrak.org/satcat/records.php?CATNR='+o.norad+'&FORMAT=json')).json();r=SATCAT[o.norad]=(j&&j[0])||{}}
+    const row=(a,b)=>b?'<dt>'+a+'</dt><dd>'+esc(b)+'</dd>':'',yrs=r.LAUNCH_DATE?Math.floor((Date.now()-Date.parse(r.LAUNCH_DATE))/3.156e10):null;
+    el.innerHTML='<dl class="spec">'+row('Official name',r.OBJECT_NAME)+row('Catalog number',String(o.norad))+row('Owner',OWNERS[r.OWNER]||r.OWNER)+row('Launched',r.LAUNCH_DATE?new Date(r.LAUNCH_DATE+'T12:00:00Z').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+(yrs>0?' ('+yrs+(yrs===1?' year':' years')+' ago)':''):'')+row('Object',{PAY:'Working satellite or payload','R/B':'Rocket body',DEB:'Debris',UNK:'Unknown'}[r.OBJECT_TYPE]||r.OBJECT_TYPE)+row('Orbit',r.PERIGEE&&r.APOGEE?Math.round(r.PERIGEE*0.6214)+'–'+Math.round(r.APOGEE*0.6214)+' mi up, every '+Math.round(r.PERIOD)+' min':'')+'</dl>'}catch(e){}}
 function routeHtml(o){
   const r=S.routes[o.cs]||(o.from?{from:o.from,to:o.to}:null);
   if(!r||!r.from){const g=guessRoute(o);if(!g)return'';
@@ -963,8 +1029,9 @@ function updDetailLive(){
   const o=find(S.detail),el=$('#d-live');if(!el)return;
   if(o&&!S.routes[o.cs]&&Date.now()-(S.rT||0)>8000){S.rT=Date.now();const rr=$('#d-route'),h=routeHtml(o);if(rr&&rr.innerHTML!==h)rr.innerHTML=h}if(!o){el.innerHTML='<div style="grid-column:1/-1" class="note">Out of range now.</div>';return}
   const c=(a,b)=>'<div><dt>'+a+'</dt><dd>'+b+'</dd></div>',air=o.kind==='plane'||o.kind==='heli';
+  if(o.kind==='sky'){el.innerHTML=c('Direction',Math.round(o.az)+'° '+compass(o.az))+c('Height',(o.el>=0?'+':'')+Math.round(o.el)+'° up')+c('Type',esc(/planet/.test(o.name)?'Planet':/star/.test(o.name)?'Star':o.cs==='SUN'?'Star (ours)':'Moon'));return}
   el.innerHTML=c('Altitude',fAlt(o))+c('Speed',fSpd(o))+c('Distance',fDst(o))+c('Bearing',Math.round(o.az)+'° '+compass(o.az))+c('Elevation',(o.el>=0?'+':'')+Math.round(o.el)+'°')
-   +(air?c('Heading',Math.round(o.trk||0)+'° '+compass(o.trk||0))+c('Climb',(o.vr>0?'+':'')+num(o.vr||0)+' fpm')+c('Squawk',esc(o.sq||'—'))+c('Tail no.',esc(o.reg||'—')):o.trk!=null?c('Heading',Math.round(o.trk)+'° '+compass(o.trk)):'');
+   +(o.kind==='sat'?c('Visibility',esc(satVisText(o))):'')+(air?c('Heading',Math.round(o.trk||0)+'° '+compass(o.trk||0))+c('Climb',(o.vr>0?'+':'')+num(o.vr||0)+' fpm')+c('Squawk',esc(o.sq||'—'))+c('Tail no.',esc(o.reg||'—')):o.trk!=null?c('Heading',Math.round(o.trk)+'° '+compass(o.trk)):'');
 }
 function renderSensors(){
   const lab={gps:'Location (GPS)',compass:'Compass and tilt',camera:'Camera view',feed:'Flight feed',sats:'Satellite orbits'},txt={on:'On',off:'Off',wait:'Starting',bad:'Unavailable'},cls={on:'ok',off:'off',wait:'off',bad:'bad'};
@@ -1078,14 +1145,19 @@ async function poll(){
 async function loadSats(){
   if(!window.satellite){S.st.sats='bad';renderSensors();return}
   let rows=null,old=null;
-  try{const c=JSON.parse(localStorage.getItem('overhead.tle')||'null');if(c&&c.rows&&c.rows.length){old=c.rows;if(Date.now()-c.t<432e5)rows=old}}catch(e){}
+  try{const c=JSON.parse(localStorage.getItem('overhead.tle')||'null');if(c&&c.rows&&c.rows.length){old=c.rows;if(Date.now()-c.t<432e5&&c.rows[0]&&c.rows[0][3])rows=old}}catch(e){}
   if(!rows)try{const got=[];
-    for(const [g,max,re] of[['stations',2,/^(ISS \(ZARYA\)|CSS \(TIANHE\))/],['visual',70,/./]]){
-      const tx=await(await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP='+g+'&FORMAT=tle')).text(),L=tx.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);let n=0;
-      for(let i=0;i+2<L.length&&n<max;i+=3){if(!re.test(L[i])||got.some(s=>s[1]===L[i+1]))continue;got.push([L[i].replace(/\s*\(.*\)/,''),L[i+1],L[i+2]]);n++}}
+    // stations: ISS and Tiangong; visual: the brightest; gps-ops: the GPS constellation; last-30-days: fresh Starlink trains;
+    // DECAYING: objects expected to reenter soon.
+    for(const [q,max,re,grp] of[['GROUP=stations',2,/^(ISS \(ZARYA\)|CSS \(TIANHE\))/,'station'],['GROUP=visual',70,/./,'visual'],['GROUP=gps-ops',32,/./,'gps'],['GROUP=last-30-days',400,/^STARLINK/,'starlink'],['SPECIAL=DECAYING',15,/./,'decay']]){
+      try{const tx=await(await fetch('https://celestrak.org/NORAD/elements/gp.php?'+q+'&FORMAT=tle')).text(),L=tx.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);let rows=[];
+      for(let i=0;i+2<L.length;i+=3){if(!re.test(L[i])||got.some(s=>s[1].slice(2,7)===L[i+1].slice(2,7)))continue;rows.push([L[i].replace(/\s*\(.*\)/,''),L[i+1],L[i+2],grp])}
+      // Starlink: keep only the newest launch (the visible "train"), from its international designator
+      if(grp==='starlink'&&rows.length){const lid=r=>r[1].slice(9,14);const newest=rows.map(lid).sort().pop();rows=rows.filter(r=>lid(r)===newest)}
+      got.push(...rows.slice(0,max))}catch(e){}}
     if(got.length){rows=got;try{localStorage.setItem('overhead.tle',JSON.stringify({t:Date.now(),rows}))}catch(e){}}}catch(e){}
   rows=rows||old;
-  try{S.sats=(rows||[]).map(r=>({name:r[0],l1:r[1],rec:satellite.twoline2satrec(r[1],r[2])}))}catch(e){S.sats=[]}
+  try{S.sats=(rows||[]).map(r=>({name:r[0],l1:r[1],l2:r[2],grp:r[3]||'visual',norad:+r[1].slice(2,7),rec:satellite.twoline2satrec(r[1],r[2])}))}catch(e){S.sats=[]}
   S.st.sats=S.sats.length?'on':'bad';
   renderSensors();
 }
@@ -1122,6 +1194,8 @@ document.addEventListener('click',e=>{
   if(a==='wdel'){const k=b.dataset.hex;WATCH.delete(k);delete WINFO[k];saveWatch();saveWinfo();renderHangar();toast('Removed from your watchlist');if(pushOn())syncPush().catch(()=>{});return}
   if(a==='alog'){openAreaLog();return}
   if(a==='tail'){openTail(b.dataset.hex);return}
+  if(a==='gps'){openGps();return}
+  if(a==='swatch'){const n=+b.dataset.norad;if(SWATCH.has(n))SWATCH.delete(n);else SWATCH.add(n);try{localStorage.setItem('overhead.swatch',JSON.stringify([...SWATCH]))}catch(e){}b.setAttribute('aria-pressed',SWATCH.has(n));toast(SWATCH.has(n)?(pushOn()?'You will get an alert before its next visible pass':'Watching. Turn on alerts with the bell to get pass alerts'):'No longer watching');if(pushOn())syncPush().catch(()=>{});return}
   if(a==='csv'){exportCsv();return}
   if(a==='push'){togglePush();return}
   if(a==='align'){if(!S.sens)return toast('Start sensors first, then align');S.alignAt=Date.now()+5000;$('#settings').hidden=true;setView('point');toast('Aim the ring at the real Sun or Moon. Capturing in 5 seconds.');return}
@@ -1258,6 +1332,7 @@ const FIRE_OWN=/10 TANKER|AERO AIR|NEPTUNE AVIATION|ERICKSON (INC|AERO|AIR)|COUL
 const isFire=o=>(o.kind==='plane'||o.kind==='heli')&&(FIRE_T.has(o.type)||FIRE_OWN.test(String(o.own||o.op||(REG[o.id.slice(1)]||{}).registered_owner||'').toUpperCase()));
 function announce(o){if(SAID[o.id])return;SAID[o.id]=1;addAlert(o.emg?'emg':o.w?'watch':'fire',o.cs||o.reg,o.id.slice(1),o.emg?o.sq:'');toast(o.emg?'Emergency squawk '+o.sq+': '+o.cs:o.w?'On your watchlist: '+o.cs+' is nearby':'Fire aircraft nearby: '+(o.cs||o.reg)+' · '+typeName(o)+', '+fDst(o)+' '+compass(o.az),o.id);try{navigator.vibrate&&navigator.vibrate([60,40,60])}catch(e){}}
 /* ---------- alerts list ---------- */
+let SWATCH=new Set();try{SWATCH=new Set((JSON.parse(localStorage.getItem('overhead.swatch')||'[]')||[]).map(Number))}catch(e){}
 let ALERTS=[];try{ALERTS=JSON.parse(localStorage.getItem('overhead.alerts')||'[]')||[]}catch(e){}
 const saveAlerts=()=>{try{localStorage.setItem('overhead.alerts',JSON.stringify(ALERTS.slice(0,60)))}catch(e){}};
 function addAlert(kind,cs,hex,sq){
@@ -1351,6 +1426,21 @@ async function openAreaLog(){
 }
 // Tap a frequent visitor: open it live if it is flying anywhere, otherwise show its profile from the registry and our log.
 const TAILS={};
+// Next rocket launch from Vandenberg (kept fresh on the server from Launch Library 2).
+let SKYL=null,skyT=0;
+function skyHtml(){
+  if(Date.now()-skyT>18e5){skyT=Date.now();fetch('api/sky').then(r=>r.ok?r.json():null).then(j=>{if(!j)return;SKYL=j.launches||[];const el=$('#h-sky');if(el)el.innerHTML=skyHtml()}).catch(()=>{})}
+  const l=(SKYL||[]).find(x=>x.net>Date.now()-36e5);if(!l)return'';
+  const when=new Date(l.net).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}),c=celestial(l.net,S.obs.lat,S.obs.lon).sun[1],glow=c<-2&&c>-20;
+  return'<h2>Next launch</h2><div class="list"><div class="item"><i class="dot" style="background:var(--amber)"></i><span class="mid"><b>'+esc(l.name||'Launch')+'</b><span>Vandenberg · '+esc(when)+(l.status?' · '+esc(l.status):'')+'</span></span><span class="end"><b>'+(glow?'Twilight':c>=-2?'Daytime':'After dark')+'</b>'+(glow?'may glow S':'plume not lit')+'</span></div></div>'+(glow?'<p class="note">This one is in twilight here, when a rocket plume can catch sunlight and glow low in the south. You will get an alert about 25 minutes before.</p>':'');
+}
+function openGps(){
+  const P=$('#detail-p'),g=S.gps||[];S.detail=null;P.classList.remove('peek');
+  P.innerHTML='<div class="sheet-h"><div><h1>GPS above you</h1><p>'+(g.length?g.length+' GPS satellites are above your horizon right now':'Start sensors to see them')+'</p></div><button class="icon-btn" data-act="close" aria-label="Close">✕</button></div>'
+    +'<p class="note" style="margin-top:0">Your phone works out where you are from the timing of signals from at least four of these, 12,550 miles up. They are far too faint to see.</p>'
+    +(g.length?'<div class="list">'+g.map(o=>'<div class="item"><i class="dot" style="background:var(--k-sat)"></i><span class="mid"><b>'+esc(o.cs.replace(/\s*\(.*/,''))+'</b><span>'+compass(o.az)+' · '+Math.round(o.el)+'° above the horizon</span></span><span class="end"><b>'+num(o.alt/1609.34)+' mi</b>up</span></div>').join('')+'</div>':'');
+  $('#detail').hidden=false;
+}
 async function openTail(k){
   if(!/^[0-9a-f]{6}$/.test(k||''))return;
   let o=find('a'+k);
@@ -1379,7 +1469,7 @@ const pushOn=()=>{try{return localStorage.getItem('overhead.push')==='1'}catch(e
 const b64=s=>Uint8Array.from(atob((s+'='.repeat((4-s.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
 async function syncPush(off){
   const reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();if(!sub)return false;
-  const r=await fetch('api/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sub:sub.toJSON(),off:!!off,watch:[...WATCH],mil:true,rare:true,emg:true,fire:true})});
+  const r=await fetch('api/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sub:sub.toJSON(),off:!!off,watch:[...WATCH],sats:[...SWATCH],mil:true,rare:true,emg:true,fire:true})});
   if(off)await sub.unsubscribe();return r.ok;
 }
 async function togglePush(){
