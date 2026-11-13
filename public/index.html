@@ -532,28 +532,72 @@ function drawAR(now){
 }
 
 let RHITS=[];
+const RPANEL=cssv('--panel');
+const rgba=(hex,a)=>{const n=parseInt(String(hex).slice(1),16);return'rgba('+(n>>16)+','+(n>>8&255)+','+(n&255)+','+a+')'};
+const shortAlt=ft=>ft<50?'GND':ft<18000?(ft/1000).toFixed(1)+'k ft':'FL'+Math.round(ft/100);
+// Radar: a sweep turns once every 4 seconds and lights up each contact as it passes,
+// then the contact fades back while a short afterglow shows where it has been.
 function drawRadar(){
   const [x,W,H]=fit($('#radar'));if(!W)return;
-  const B=basis(),hd=heading(B),rot=S.northUp?0:hd,cx=W/2,cy=(H-60)/2+4,R=Math.max(40,Math.min(W/2-26,(H-60)/2-26)),rm=S.range*1609.34;
+  const now=Date.now(),B=basis(),hd=heading(B),rot=S.northUp?0:hd,top=84,bot=72,
+    R=Math.max(40,Math.min(W/2-30,(H-top-bot)/2-26)),cx=W/2,cy=top+(H-top-bot)/2,rm=S.range*1609.34,
+    TAU=Math.PI*2,SW=RMO?-1:((now/4000)%1)*TAU;
   x.clearRect(0,0,W,H);x.fillStyle=COL.hi;x.fillRect(0,0,W,H);
-  x.strokeStyle=COL.line;x.lineWidth=1;x.font='400 10px "B612 Mono",monospace';x.textBaseline='middle';x.textAlign='center';
-  for(let i=1;i<=3;i++){x.beginPath();x.arc(cx,cy,R*i/3,0,7);x.stroke();x.fillStyle=COL.mute;x.fillText((S.range<9?(S.range*i/3).toFixed(1):Math.round(S.range*i/3))+' mi',cx,cy-R*i/3+9)}
-  for(let a=0;a<360;a+=30){const r=(a-rot)*D;x.beginPath();x.moveTo(cx+Math.sin(r)*R,cy-Math.cos(r)*R);x.lineTo(cx+Math.sin(r)*(R+(a%90?4:8)),cy-Math.cos(r)*(R+(a%90?4:8)));x.stroke()}
-  x.font='700 12px "B612 Mono",monospace';
-  for(const [a,n] of[[0,'N'],[90,'E'],[180,'S'],[270,'W']]){const r=(a-rot)*D;x.fillStyle=a?COL.mute:COL.amber;x.fillText(n,cx+Math.sin(r)*(R+17),cy-Math.cos(r)*(R+17))}
-  // view cone
-  const lookA=(camAz(B)-rot)*D,half=S.fov*D/2*Math.min(1,W/H*1.4);
-  x.beginPath();x.moveTo(cx,cy);x.arc(cx,cy,R,lookA-Math.PI/2-half,lookA-Math.PI/2+half);x.closePath();x.fillStyle=COL.lock;x.globalAlpha=.12;x.fill();x.globalAlpha=1;
-  x.fillStyle=COL.ink;x.beginPath();x.arc(cx,cy,4,0,7);x.fill();
-  drawPath(x,find(S.sel)||find(S.focus)||find(S.lock),p=>{const v=enu(p[0],p[1],p[2]),a=Math.atan2(v[0],v[1])-rot*D,r=Math.min(Math.hypot(v[0],v[1])/rm,1)*R;return[cx+Math.sin(a)*r,cy-Math.cos(a)*r]});
-  RHITS=[];x.textAlign='left';x.font='700 10px "B612 Mono",monospace';
-  const LB=[];for(const o of [...S.objs].sort((a,b)=>(b.w|0)-(a.w|0)||a.g-b.g)){if(o.kind==='sky')continue;
-    const out=o.g>rm,r=Math.min(o.g/rm,1)*R,a=(o.az-rot)*D,px=cx+Math.sin(a)*r,py=cy-Math.cos(a)*r,on=o.id===S.sel||o.id===S.lock;
+  // glow behind the scope
+  const bg=x.createRadialGradient(cx,cy,0,cx,cy,R*1.2);bg.addColorStop(0,rgba(COL.lock,.11));bg.addColorStop(.75,rgba(COL.lock,.035));bg.addColorStop(1,rgba(COL.lock,0));
+  x.fillStyle=bg;x.beginPath();x.arc(cx,cy,R*1.2,0,TAU);x.fill();
+  // inside the scope: spokes, dashed minor rings and the sweep
+  x.save();x.beginPath();x.arc(cx,cy,R,0,TAU);x.clip();
+  x.strokeStyle=rgba(COL.lock,.07);x.lineWidth=1;
+  for(let a=0;a<360;a+=30){const r=(a-rot)*D;x.beginPath();x.moveTo(cx,cy);x.lineTo(cx+Math.sin(r)*R,cy-Math.cos(r)*R);x.stroke()}
+  x.setLineDash([2,5]);for(let i=1;i<6;i+=2){x.beginPath();x.arc(cx,cy,R*i/6,0,TAU);x.stroke()}x.setLineDash([]);
+  if(SW>=0){const sa=SW-Math.PI/2,N=26,span=1.15;
+    if(x.createConicGradient){const cg=x.createConicGradient(sa-span,cx,cy),f=span/TAU;for(let i=0;i<=8;i++)cg.addColorStop(f*i/8,rgba(COL.lock,.26*Math.pow(i/8,2.2)));cg.addColorStop(Math.min(1,f+.0005),rgba(COL.lock,0));x.fillStyle=cg;x.beginPath();x.moveTo(cx,cy);x.arc(cx,cy,R,sa-span,sa);x.closePath();x.fill()}
+    else for(let i=0;i<N;i++){const a0=sa-span+span*i/N;x.fillStyle=rgba(COL.lock,.24*Math.pow((i+1)/N,2.2));x.beginPath();x.moveTo(cx,cy);x.arc(cx,cy,R,a0,a0+span/N);x.closePath();x.fill()}
+    x.strokeStyle=rgba(COL.lock,.9);x.lineWidth=2;x.beginPath();x.moveTo(cx,cy);x.lineTo(cx+Math.cos(sa)*R,cy+Math.sin(sa)*R);x.stroke()}
+  x.restore();
+  // range rings with labels on the lower right, clear of the north marker
+  x.strokeStyle=COL.line;x.lineWidth=1;x.textBaseline='middle';x.textAlign='center';x.font='400 10px "B612 Mono",monospace';
+  for(let i=1;i<=3;i++){const rr=R*i/3;x.beginPath();x.arc(cx,cy,rr,0,TAU);x.stroke();
+    const t=(S.range<9?(S.range*i/3).toFixed(1):Math.round(S.range*i/3))+' mi',lx=cx+Math.cos(Math.PI/4)*rr,ly=cy+Math.sin(Math.PI/4)*rr,tw=x.measureText(t).width+10;
+    x.fillStyle=COL.hi;x.fillRect(lx-tw/2,ly-7,tw,14);x.fillStyle=COL.mute;x.fillText(t,lx,ly)}
+  // bezel: degree ticks and compass labels
+  x.strokeStyle=rgba(COL.lock,.4);x.lineWidth=1.5;x.beginPath();x.arc(cx,cy,R,0,TAU);x.stroke();x.lineWidth=1;
+  for(let a=0;a<360;a+=5){const r=(a-rot)*D,l=a%30===0?9:a%10===0?6:3;x.strokeStyle=a%30===0?COL.mute:COL.line;x.beginPath();x.moveTo(cx+Math.sin(r)*R,cy-Math.cos(r)*R);x.lineTo(cx+Math.sin(r)*(R+l),cy-Math.cos(r)*(R+l));x.stroke()}
+  for(let a=0;a<360;a+=30){const r=(a-rot)*D,n={0:'N',90:'E',180:'S',270:'W'}[a];x.fillStyle=a===0?COL.amber:n?COL.ink:COL.mute;x.font=(n?'700 12px':'400 9px')+' "B612 Mono",monospace';x.fillText(n||String(a).padStart(3,'0'),cx+Math.sin(r)*(R+20),cy-Math.cos(r)*(R+20))}
+  // where the phone is pointing
+  const lookA=(camAz(B)-rot)*D,half=S.fov*D/2*Math.min(1,W/H*1.4),cg=x.createRadialGradient(cx,cy,0,cx,cy,R);cg.addColorStop(0,rgba(COL.amber,.22));cg.addColorStop(1,rgba(COL.amber,0));
+  x.beginPath();x.moveTo(cx,cy);x.arc(cx,cy,R,lookA-Math.PI/2-half,lookA-Math.PI/2+half);x.closePath();x.fillStyle=cg;x.fill();
+  // you, with a slow pulse
+  const pp=RMO?0:(now%2400)/2400;x.strokeStyle=rgba(COL.ink,.55*(1-pp));x.lineWidth=1.5;x.beginPath();x.arc(cx,cy,5+pp*24,0,TAU);x.stroke();
+  x.fillStyle=COL.ink;x.beginPath();x.arc(cx,cy,4,0,TAU);x.fill();
+  const toXY=(la,lo,al)=>{const v=enu(la,lo,al||0),a=Math.atan2(v[0],v[1])-rot*D,r=Math.min(Math.hypot(v[0],v[1])/rm,1)*R;return[cx+Math.sin(a)*r,cy-Math.cos(a)*r]};
+  drawPath(x,find(S.sel)||find(S.focus)||find(S.lock),p=>toXY(p[0],p[1],p[2]));
+  // contacts
+  RHITS=[];const LB=[];let inRange=0,near=null,high=null;
+  for(const o of [...S.objs].sort((a,b)=>(b.w|0)-(a.w|0)||a.g-b.g)){if(o.kind==='sky')continue;
+    const air=o.kind==='plane'||o.kind==='heli',out=o.g>rm,r=Math.min(o.g/rm,1)*R,a=(o.az-rot)*D,px=cx+Math.sin(a)*r,py=cy-Math.cos(a)*r,on=o.id===S.sel||o.id===S.lock;
     if(out&&o.kind!=='sat'&&!on&&!o.w)continue;
-    x.globalAlpha=out?.55:1;if(o.w)halo(x,px,py,13);glyph(x,o.kind,px,py,on||o.w?10:8,((o.trk||0)-rot)*D,on?COL.lock:kc(o),true);
-    if(!out||on||o.w){const w=o.cs.length*6.2+4,bx=px+(o.w?18:12);if(on||o.w||!LB.some(b=>bx<b[0]+b[2]&&bx+w>b[0]&&Math.abs(py-b[1])<11)){LB.push([bx,py,w]);x.fillStyle=on?COL.lock:o.w?COL.gold:COL.mute;x.fillText(o.cs,bx,py)}}
-    x.globalAlpha=1;RHITS.push([px,py,o.id]);
+    if(air&&!out){inRange++;if(!near||o.g<near.g)near=o;if(!high||o.alt>high.alt)high=o}
+    const frac=SW<0?1:(((SW-((a%TAU)+TAU)%TAU)%TAU)+TAU)%TAU/TAU,g=SW<0?1:Math.max(0,1-frac/.5),col=on?COL.lock:kc(o);
+    if(air&&o.tr&&o.tr.length>1&&!out){const tr=o.tr.slice(-8);tr.forEach((q,i)=>{const s=toXY(q[0],q[1],q[2]);x.fillStyle=rgba(col,.08+.3*(i/tr.length));x.beginPath();x.arc(s[0],s[1],1.6,0,TAU);x.fill()})}
+    if(SW>=0&&g>0&&!out){x.strokeStyle=rgba(COL.lock,.6*g);x.lineWidth=1.5;x.beginPath();x.arc(px,py,7+(1-g)*16,0,TAU);x.stroke()}
+    x.globalAlpha=out?.5:(on||o.w?1:.55+.45*g);if(o.w)halo(x,px,py,13);glyph(x,o.kind,px,py,on||o.w?10:8,((o.trk||0)-rot)*D,col,true);x.globalAlpha=1;
+    if(!out||on||o.w){const l2=air?shortAlt(o.alt/0.3048)+((o.vr||0)>300?' ↑':(o.vr||0)<-300?' ↓':''):'',w=Math.max(o.cs.length,l2.length)*6.2+4,bx=px+(o.w?18:12);
+      if(on||o.w||!LB.some(b=>bx<b[0]+b[2]&&bx+w>b[0]&&Math.abs(py-b[1])<22)){LB.push([bx,py,w]);x.textAlign='left';
+        x.font='700 10px "B612 Mono",monospace';x.fillStyle=on?COL.lock:o.w?COL.gold:rgba(COL.ink,.55+.45*g);x.fillText(o.cs,bx,l2?py-5:py);
+        if(l2){x.font='400 9px "B612 Mono",monospace';x.fillStyle=COL.mute;x.fillText(l2,bx,py+6)}}}
+    RHITS.push([px,py,o.id]);
   }
+  // readout across the top
+  const cards=[['IN RANGE',inRange+' aircraft'],['NEAREST'+(near?' · '+fDst(near).toUpperCase():''),near?near.cs:'None'],['HIGHEST'+(high?' · '+shortAlt(high.alt/0.3048).toUpperCase():''),high?high.cs:'None']];
+  const gl=Math.max(16,W*0.04),cw=(W-gl*2-16)/3;x.textAlign='left';
+  cards.forEach((c,i)=>{const bx=gl+i*(cw+8),by=12;x.fillStyle=RPANEL;x.strokeStyle=COL.line;x.lineWidth=1;x.beginPath();if(x.roundRect)x.roundRect(bx,by,cw,50,10);else x.rect(bx,by,cw,50);x.fill();x.stroke();
+    x.font='400 9px "B612 Mono",monospace';x.fillStyle=COL.mute;x.fillText(c[0],bx+10,by+16);
+    x.font='700 12px "B612 Mono",monospace';x.fillStyle=COL.ink;let t=c[1];while(t.length>3&&x.measureText(t).width>cw-20)t=t.slice(0,-2)+'…';x.fillText(t,bx+10,by+34)});
+  const age=S.lastFeed?Math.round((now-S.lastFeed)/1000):null;x.font='400 9px "B612 Mono",monospace';x.fillStyle=COL.mute;
+  const st=S.mode!=='live'?'WAITING FOR LOCATION':age==null?'CONNECTING':'UPDATED '+age+' S AGO';x.fillText(st,gl+14,74);
+  x.fillStyle=S.mode==='live'&&age!=null&&age<30?COL.heli:COL.amber;x.beginPath();x.arc(gl+5,74,3+(RMO?0:Math.sin(now/300)*.8),0,TAU);x.fill();
 }
 let MAP=null,MHITS=[],mapT;
 function openMap(){
@@ -780,7 +824,7 @@ async function poll(){
     ['https://opensky-network.org/api/states/all?lamin='+(qa-dg).toFixed(2)+'&lomin='+(qo-dl).toFixed(2)+'&lamax='+(qa+dg).toFixed(2)+'&lomax='+(qo+dl).toFixed(2),osky]];
   let ok=false;
   for(let i=0;i<SRC.length&&!ok;i++){const k=(S.src+i)%SRC.length;
-    try{const r=await fetch(SRC[k][0]);if(!r.ok)throw 0;const list=SRC[k][1](await r.json()),t=Date.now();for(const o of list){o.t=t-(o.age||0)*1000;const pv=S.live[o.id],tr=(pv&&pv.tr)||[],l=tr[tr.length-1];if(!l||l[0]!==o.lat0||l[1]!==o.lon0)tr.push([o.lat0,o.lon0,o.alt0]);if(tr.length>150)tr.shift();o.tr=tr;o.t0=(pv&&pv.t0)||t;S.live[o.id]=o}S.src=k;ok=true}catch(e){}}
+    try{const r=await fetch(SRC[k][0]);if(!r.ok)throw 0;const list=SRC[k][1](await r.json()),t=Date.now();for(const o of list){o.t=t-(o.age||0)*1000;const pv=S.live[o.id],tr=(pv&&pv.tr)||[],l=tr[tr.length-1];if(!l||l[0]!==o.lat0||l[1]!==o.lon0)tr.push([o.lat0,o.lon0,o.alt0]);if(tr.length>150)tr.shift();o.tr=tr;o.t0=(pv&&pv.t0)||t;S.live[o.id]=o}S.src=k;S.lastFeed=Date.now();ok=true}catch(e){}}
   const was=S.st.feed;S.st.feed=ok?'on':'bad';if(was!==S.st.feed){renderSensors();if(!ok)toast('Flight feed is not answering. Sun, Moon and satellites still work.')}
   pollT=setTimeout(poll,ok?10000:30000);
 }
