@@ -117,6 +117,9 @@ h2:first-child{margin-top:0}
 .bars i{flex:1;background:var(--amber);border-radius:2px 2px 0 0;min-height:2px}
 .axis{display:flex;justify-content:space-between;font:400 10px var(--f-data);color:var(--mute);margin-top:4px}
 .wstar{color:var(--gold)}
+.wrow{display:flex;gap:8px;align-items:center}
+.wrow .item{flex:1;min-width:0}
+.item .mid .wstar{display:inline}
 .empty{color:var(--mute);background:var(--panel);border:1px dashed var(--line);border-radius:12px;padding:14px}
 .tabs{display:grid;grid-template-columns:repeat(5,1fr);background:var(--panel);border-top:1px solid var(--line);padding-left:var(--gl);padding-right:var(--gr)}
 .tabs button{padding:9px 0 10px;display:flex;flex-direction:column;align-items:center;gap:3px;font:700 10px var(--f-data);letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
@@ -635,7 +638,7 @@ function renderList(){
 function renderHangar(){
   const pts=LOG.reduce((s,x)=>s+x.pts,0),lvl=Math.floor(Math.sqrt(pts/50))+1,lo=50*(lvl-1)**2,hi=50*lvl**2,types=new Set(LOG.filter(x=>x.type&&TYPES[x.type]).map(x=>x.type)),nT=Object.keys(TYPES).length;
   const got=BADGES.filter(b=>b[3](LOG)).length;
-  $('#v-hangar').innerHTML='<div class="row" style="margin-bottom:16px"><button class="btn" data-act="alog">Area log, 24/7</button><button class="btn" data-act="csv">Export logbook</button></div><h2>Spotter rank</h2><div class="score"><div><span class="lbl">Level</span><b>'+lvl+'</b></div><div><span class="lbl">Points</span><b>'+num(pts)+'</b></div><div><span class="lbl">Catches</span><b>'+LOG.length+'</b></div></div>'
+  $('#v-hangar').innerHTML='<div class="row" style="margin-bottom:16px"><button class="btn" data-act="alog">Area log, 24/7</button><button class="btn" data-act="csv">Export logbook</button></div>'+watchHtml()+'<h2>Spotter rank</h2><div class="score"><div><span class="lbl">Level</span><b>'+lvl+'</b></div><div><span class="lbl">Points</span><b>'+num(pts)+'</b></div><div><span class="lbl">Catches</span><b>'+LOG.length+'</b></div></div>'
    +'<div class="bar" aria-label="Progress to next level"><i style="width:'+Math.round((pts-lo)/(hi-lo)*100)+'%"></i></div><p class="note">'+num(hi-pts)+' points to level '+(lvl+1)+'. Rare catches are worth '+PTS[3]+', Epic '+PTS[4]+'.</p>'
    +'<h2>Badges · '+got+' of '+BADGES.length+'</h2><div class="badges">'+BADGES.map(b=>{const on=b[3](LOG);return'<div class="badge'+(on?' on':'')+'"><em>'+(on?'Earned':'Locked')+'</em><b>'+b[1]+'</b><span>'+b[2]+'</span></div>'}).join('')+'</div>'
    +'<h2>Type guide · '+types.size+' of '+nT+'</h2><div class="bar"><i style="width:'+Math.round(types.size/nT*100)+'%"></i></div>'
@@ -764,6 +767,8 @@ document.addEventListener('click',e=>{
   if(b.dataset.range){S.range=+b.dataset.range;save();updRange();if(S.mode==='live')poll();return}
   if(b.dataset.filter){S.filters[b.dataset.filter]^=1;renderFilters();tick();renderList();return}
   if(a==='watch'){toggleWatch(id,b);return}
+  if(a==='wfind'){findWatched(b.dataset.hex);return}
+  if(a==='wdel'){const k=b.dataset.hex;WATCH.delete(k);delete WINFO[k];saveWatch();saveWinfo();renderHangar();toast('Removed from your watchlist');if(pushOn())syncPush().catch(()=>{});return}
   if(a==='alog'){openAreaLog();return}
   if(a==='csv'){exportCsv();return}
   if(a==='push'){togglePush();return}
@@ -810,6 +815,26 @@ function pick(H,c,e){const r=c.getBoundingClientRect(),x=e.clientX-r.left,y=e.cl
 
 /* ---------- watchlist, search, alerts, area log, alignment ---------- */
 let WATCH=new Set();try{WATCH=new Set(JSON.parse(localStorage.getItem('overhead.watch')||'[]'))}catch(e){}
+let WINFO={};try{WINFO=JSON.parse(localStorage.getItem('overhead.winfo')||'{}')||{}}catch(e){}
+const saveWinfo=()=>{try{localStorage.setItem('overhead.winfo',JSON.stringify(WINFO))}catch(e){}};
+const saveWatch=()=>{try{localStorage.setItem('overhead.watch',JSON.stringify([...WATCH]))}catch(e){}};
+function watchHtml(){
+  const ks=[...WATCH].sort((a,b)=>(find('a'+b)?1:0)-(find('a'+a)?1:0));
+  if(!ks.length)return'<h2>Watchlist</h2><div class="empty">Your watchlist is empty. Open any aircraft and tap Watch to follow it here.</div>';
+  const rows=ks.map(k=>{const o=find('a'+k),i=WINFO[k]||{},cs=(o&&o.cs)||i.cs||'',name=(o&&o.reg)||i.reg||cs||k.toUpperCase(),sub=[(o?typeName(o):i.type)||'',cs&&cs!==name?cs:''].filter(Boolean).join(' · ')||'ICAO '+k.toUpperCase();
+    return'<div class="wrow"><button class="item" data-act="wfind" data-hex="'+k+'"><i class="dot" style="background:var(--gold)"></i><span class="mid"><b><span class="wstar">★</span> '+esc(name)+'</b><span>'+esc(sub)+'</span></span><span class="end">'+(o?'<b>'+fDst(o)+'</b>Nearby now':'<b>Not nearby</b>Tap to find')+'</span></button><button class="icon-btn" data-act="wdel" data-hex="'+k+'" aria-label="Remove '+esc(name)+' from your watchlist">✕</button></div>'});
+  return'<h2>Watchlist · '+ks.length+'</h2><div class="list">'+rows.join('')+'</div>';
+}
+async function findWatched(k){
+  let o=find('a'+k);
+  if(!o){
+    if(S.mode!=='live')return toast('Go live to find aircraft on your watchlist');
+    toast('Looking for it in all live traffic');
+    try{const r=await fetch('feed/fi/hex/'+k);if(r.ok){const n=readsb(await r.json())[0];if(n){const t=Date.now();n.t=t;n.t0=t;n.tr=[[n.lat0,n.lon0,n.alt0]];S.live[n.id]=n;tick();o=find(n.id)}}}catch(e){}
+    if(!o){const i=WINFO[k]||{};return toast((i.reg||i.cs||k.toUpperCase())+' is not flying right now')}
+  }
+  setView('map');if(MAP&&o.lat!=null)MAP.setView([o.lat,o.lon],Math.max(MAP.getZoom(),9));openDetail(o.id);
+}
 const kc=o=>o.emg?COL.t4:o.w?COL.gold:COL[o.kind];
 const RMO=(()=>{try{return matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){return false}})();
 // gold ring, soft glow and a star badge mark aircraft on the watchlist in every view
@@ -825,7 +850,7 @@ const SAID={},TRK={},TRKT={},HOSTED=location.protocol==='https:'&&/netlify\.app$
 function announce(o){if(SAID[o.id])return;SAID[o.id]=1;toast(o.emg?'Emergency squawk '+o.sq+': '+o.cs:'On your watchlist: '+o.cs+' is nearby');try{navigator.vibrate&&navigator.vibrate([60,40,60])}catch(e){}}
 function toggleWatch(id,b){
   if(!id||id[0]!=='a')return toast('Go live to add aircraft to your watchlist');
-  const k=id.slice(1);if(WATCH.has(k))WATCH.delete(k);else WATCH.add(k);
+  const k=id.slice(1);if(WATCH.has(k))WATCH.delete(k);else{WATCH.add(k);const o=find(id);if(o){WINFO[k]={cs:o.cs||'',reg:o.reg||'',type:typeName(o)};saveWinfo()}}
   try{localStorage.setItem('overhead.watch',JSON.stringify([...WATCH]))}catch(e){}
   b.setAttribute('aria-pressed',WATCH.has(k));toast(WATCH.has(k)?'Added to your watchlist':'Removed from your watchlist');if(pushOn())syncPush().catch(()=>{});
 }
