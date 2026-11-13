@@ -626,17 +626,24 @@ const REG={};let SEEN={},seenDirty=0,seenT=0;
 try{SEEN=JSON.parse(localStorage.getItem('overhead.seen')||'{}')||{}}catch(e){}
 function noteSeen(k,now){const e=SEEN[k];if(!e){SEEN[k]=[now,now,1];seenDirty=1}else if(now-e[1]>18e5){e[2]++;e[1]=now;seenDirty=1}else if(now-e[1]>12e4){e[1]=now;seenDirty=1}}
 function saveSeen(now){seenT=now;seenDirty=0;const ks=Object.keys(SEEN);if(ks.length>4000)ks.sort((a,b)=>SEEN[a][1]-SEEN[b][1]).slice(0,ks.length-3000).forEach(k=>delete SEEN[k]);try{localStorage.setItem('overhead.seen',JSON.stringify(SEEN))}catch(e){}}
+// FAA registry details (US aircraft), rebuilt nightly by a GitHub job and read straight from GitHub.
+const FAA={},FAAP={};
+function faaGet(hex){const k=hex.slice(0,3);if(!(k in FAAP))FAAP[k]=fetch('https://raw.githubusercontent.com/TT-CorpDEV/overhead-spotter/faa-data/faa/'+k+'.json').then(r=>r.ok?r.json():{}).then(j=>{FAA[k]=j;return j}).catch(()=>{FAA[k]={};return{}});return FAAP[k]}
+const faaDate=d=>/^\d{8}$/.test(d||'')?new Date(+d.slice(0,4),+d.slice(4,6)-1,+d.slice(6,8)).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
 function airHtml(o){
-  const live=o.id[0]==='a',hex=live?o.id.slice(1):'',okHex=/^[0-9a-f]{6}$/.test(hex),db=REG[hex]||{},priv=(o.flags&12)>0,yr=o.year,age=yr?new Date().getFullYear()-yr:0;
-  const model=db.manufacturer?db.manufacturer+' '+(db.type||''):(o.desc||'');
-  const own0=db.registered_owner||o.own||'',owner=o.noOwner?'':priv?(own0?own0+' · owner requested limited display':'Not listed. The owner has asked for limited tracking display.'):(own0||(live?'':o.op)||'');
+  const live=o.id[0]==='a',hex=live?o.id.slice(1):'',okHex=/^[0-9a-f]{6}$/.test(hex),db=REG[hex]||{},priv=(o.flags&12)>0;
+  const us=okHex&&hex>='a00000'&&hex<='adf7c7',fk=hex.slice(0,3),fa=us&&FAA[fk]?FAA[fk][hex]||null:null;
+  if(us&&!FAA[fk])faaGet(hex).then(()=>{const el=$('#d-air');if(el&&!$('#detail').hidden&&el.dataset.hex===hex)el.innerHTML=airHtml(find(o.id)||o)});
+  const yr=o.year||(fa&&+fa[9])||0,age=yr?new Date().getFullYear()-yr:0;
+  const model=db.manufacturer?db.manufacturer+' '+(db.type||''):(o.desc||(fa&&fa[10])||'');
+  const own0=(fa&&fa[1])||db.registered_owner||o.own||'',owner=o.noOwner?'':priv?(own0?own0+' · owner requested limited display':'Not listed. The owner has asked for limited tracking display.'):(own0||(live?'':o.op)||'');
   const al=ALOG[hex],dt=t=>new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   const area=!al?'':!al.since?'Logger has not run yet':al.visits?al.visits+(al.visits===1?' visit':' visits')+' since '+dt(al.since):'No visits logged since '+dt(al.since);
   const e=SEEN[hex],seen=!live?'Not counted':!e||e[2]<2?'First time this app has seen it near you':e[2]+' times since '+new Date(e[0]).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   const val=valueOf(o),r=(a,b)=>b?'<dt>'+a+'</dt><dd>'+esc(b)+'</dd>':'';
   let h='<h2>This aircraft</h2>';
   if(db.url_photo_thumbnail&&!priv)h+='<a href="'+esc(db.url_photo||db.url_photo_thumbnail)+'" target="_blank" rel="noopener"><img class="ph" src="'+esc(db.url_photo_thumbnail)+'" alt="Photo of '+esc(o.reg||o.cs)+'" loading="lazy"></a><p class="note" style="margin:0 0 10px">Photo: airport-data.com</p>';
-  h+='<dl class="spec">'+r('Tail number',o.reg)+r('ICAO hex',okHex?hex.toUpperCase():'')+r('Model',model)+r('Category',CATN[o.cat]||'')+r('Built',yr?yr+' ('+age+(age===1?' year':' years')+' old)':'')+r('Registered owner',owner)+r('Registered in',o.noOwner?'':db.registered_owner_country_name)+r('Flown by',o.op&&o.op!==owner&&live?o.op:'')+r('Seen near you',seen)+r('Area log, 24/7',area)+r('Rough value',val)+'</dl>';
+  h+='<dl class="spec">'+r('Tail number',o.reg)+r('ICAO hex',okHex?hex.toUpperCase():'')+r('Model',model)+r('Category',CATN[o.cat]||'')+r('Built',yr?yr+' ('+age+(age===1?' year':' years')+' old)':'')+r('Registered owner',owner)+(fa&&!o.noOwner?r('Owner type',fa[2])+r('Based in',[fa[3],fa[4]].filter(Boolean).join(', '))+r('Fleet',fa[12]>1?fa[12]+' aircraft registered to this owner':'')+r('Registered',faaDate(fa[5]))+r('Registration expires',faaDate(fa[6]))+r('Airworthiness',fa[7]+(fa[8]?' since '+faaDate(fa[8]):''))+r('Engine',fa[11]):r('Registered in',o.noOwner?'':db.registered_owner_country_name))+r('Flown by',o.op&&o.op!==owner&&live?o.op:'')+r('Seen near you',seen)+r('Area log, 24/7',area)+r('Rough value',val)+'</dl>';
   if(val&&!MILV[o.type])h+='<p class="note">Value is a model estimate from type and age, not an appraisal. Condition, engine time and avionics can move it a lot.</p>';
   if(live&&okHex&&!priv){const reg=o.reg||'';h+='<div class="links">'+(/^N[0-9]/.test(reg)?'<a href="https://registry.faa.gov/AircraftInquiry/Search/NNumberResult?nNumberTxt='+encodeURIComponent(reg)+'" target="_blank" rel="noopener">FAA record</a>':'')+'<a href="https://globe.adsbexchange.com/?icao='+hex+'" target="_blank" rel="noopener">Flight history</a>'+(reg?'<a href="https://www.flightaware.com/live/flight/'+encodeURIComponent(reg)+'" target="_blank" rel="noopener">FlightAware</a>':'')+'</div>'}
   return h;
@@ -954,7 +961,7 @@ function openDetail(id){
   h+='<button class="btn go logbig" data-act="log" data-id="'+esc(o.id)+'"'+(done?' disabled':'')+'>'+(done?'In your logbook':'Log it  +'+PTS[o.tier])+'</button>'
     +'<div class="row" style="margin:8px 0 0">'+(done&&logEntry(o)?'<button class="btn" data-act="share" data-key="'+esc(logEntry(o).key)+'">Share card</button>':'')+'<button class="btn" data-act="guide" data-id="'+esc(o.id)+'">Guide me</button>'+(air?'<button class="btn" data-act="path" data-id="'+esc(o.id)+'" aria-pressed="'+!!S.path+'">Flight path</button><button class="btn" data-act="watch" data-id="'+esc(o.id)+'" aria-pressed="'+(o.id[0]==='a'&&WATCH.has(o.id.slice(1)))+'">Watch</button>':o.kind==='sat'&&o.norad?'<button class="btn" data-act="swatch" data-norad="'+o.norad+'" aria-pressed="'+SWATCH.has(o.norad)+'">Watch passes</button>':'')+'</div>'
     +'<button class="dmore-btn" data-act="dmore">More details ↑</button><div class="dmore">';
-  if(air)h+='<div id="d-air">'+airHtml(o)+'</div>';
+  if(air)h+='<div id="d-air" data-hex="'+esc(o.id.slice(1))+'">'+airHtml(o)+'</div>';
   if(T){h+='<h2>About the '+esc(T[0])+'</h2><dl class="spec"><dt>Role</dt><dd>'+T[2]+'</dd><dt>Built by</dt><dd>'+T[1]+'</dd><dt>Power</dt><dd>'+T[3]+'</dd><dt>Carries</dt><dd>'+T[4]+'</dd>'+(T[5]?'<dt>Range</dt><dd>'+num(T[5]*1.1508)+' mi</dd>':'')+'<dt>Flying since</dt><dd>'+T[7]+'</dd><dt>'+(T[10]==='heli'?'Rotor':'Wingspan')+'</dt><dd>'+T[6]+' ft</dd></dl>'
     +'<div class="span-bar"><span class="lbl">Size next to an A380 (261.6 ft)</span><div class="bar"><i style="width:'+Math.round(T[6]/261.6*100)+'%"></i></div></div><p class="fact">'+T[9]+'</p><p class="note">Typical figures. Variants and airline layouts differ.</p>'}
   else if(o.kind==='sat'){h+='<h2>Next passes over you</h2><div id="d-pass"><p class="note">Working out passes.</p></div><h2>About this satellite</h2><p class="fact">'+esc(satAbout(o))+'</p><div id="d-satcat"></div>';setTimeout(()=>{fillPasses(o);fillSatcat(o)},30)}
@@ -1475,7 +1482,7 @@ async function openTail(k){
     +'<p class="note" style="margin-top:0">Not in the air right now. Watch it to get an alert the next time it flies near you.</p>'
     +'<div class="row" style="margin-bottom:6px"><button class="btn" data-act="watch" data-id="a'+k+'" aria-pressed="'+WATCH.has(k)+'">Watch</button><button class="btn" data-act="alog">Back to area log</button></div>'
     +'<h2>Visits near Portland</h2><dl class="spec"><dt>Visits</dt><dd>'+num(t.visits||0)+'</dd>'+(t.first?'<dt>First seen</dt><dd>'+esc(dt(t.first))+'</dd>':'')+(t.last?'<dt>Last seen</dt><dd>'+esc(dt(t.last))+'</dd>':'')+'</dl>'
-    +'<div id="d-air">'+airHtml(pseudo)+'</div>';
+    +'<div id="d-air" data-hex="'+esc(pseudo.id.slice(1))+'">'+airHtml(pseudo)+'</div>';
   $('#detail').hidden=false;
 }
 /* ---------- pick-up mode ---------- */
