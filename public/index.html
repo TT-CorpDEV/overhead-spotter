@@ -11,7 +11,7 @@
   --panel:#0b0b0c; --panel-2:#121214; --line:#2a2a2e; --line-2:#48484d;
   --ink:#ffffff; --mute:#9a9a9e;
   --amber:#f4b92e; --lock:#ffffff; --gold:#ffd666;
-  --k-plane:#d6d6da; --k-heli:#9fe0b8; --k-sat:#b6a6ff; --k-ship:#7fd0c8; --k-sky:#e9e9ea;
+  --k-plane:#d6d6da; --k-heli:#9fe0b8; --k-sat:#b6a6ff; --k-ship:#7fd0c8; --k-train:#ff8a5c; --k-sky:#e9e9ea;
   --t1:#9a9a9e; --t2:#7fd0c8; --t3:#b6a6ff; --t4:#f4b92e;
   --f-text:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-data:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
@@ -321,9 +321,9 @@ button.item{width:100%;text-align:left;font:inherit;color:inherit}
 const D=Math.PI/180,$=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const COL={plane:cssv('--k-plane'),heli:cssv('--k-heli'),sat:cssv('--k-sat'),ship:cssv('--k-ship'),sky:cssv('--k-sky'),
+const COL={plane:cssv('--k-plane'),heli:cssv('--k-heli'),sat:cssv('--k-sat'),ship:cssv('--k-ship'),train:cssv('--k-train'),sky:cssv('--k-sky'),
   lock:cssv('--lock'),amber:cssv('--amber'),gold:cssv('--gold'),ink:cssv('--ink'),mute:cssv('--mute'),line:cssv('--line'),hi:cssv('--sky-hi'),lo:cssv('--sky-lo'),ground:cssv('--ground'),t4:cssv('--t4')};
-const KIND={plane:'Airplane',heli:'Helicopter',sat:'Satellite',sky:'Sky'};
+const KIND={plane:'Airplane',heli:'Helicopter',train:'Train',sat:'Satellite',sky:'Sky'};
 const TIER=['','Common','Uncommon','Rare','Epic'],PTS=[0,10,25,60,150];
 
 // code:[name, maker, role, engines, seats/payload, range nm, span ft, year, tier, fact, class]
@@ -524,7 +524,7 @@ const BADGES=[
 ];
 
 const S={mode:'wait',obs:{lat:45.52,lon:-122.68,alt:15},view:'point',look:{az:70,el:20},sens:false,basis:null,cam:false,
-  objs:[],sel:null,lock:null,cand:null,detail:null,filters:{plane:1,heli:1,sat:1,ship:1,sky:1},cats:{com:1,pvt:1,gov:1},range:25,northUp:false,fov:60,
+  objs:[],sel:null,lock:null,cand:null,detail:null,filters:{plane:1,heli:1,train:1,sat:1,ship:1,sky:1},cats:{com:1,pvt:1,gov:1},range:25,northUp:false,fov:60,
   live:{},sats:[],src:0,st:{gps:'off',compass:'off',camera:'off',feed:'off',sats:'off'},down:false,absSeen:false,routes:{}};
 let LOG=[];
 try{const j=JSON.parse(localStorage.getItem('overhead.v1')||'{}');LOG=j.log||[];if(j.fov)S.fov=j.fov;if(j.range)S.range=j.range;S.path=!!j.path;S.azOff=+j.az||0;S.elOff=+j.el||0;if(j.cats)Object.assign(S.cats,j.cats)}catch(e){}
@@ -588,7 +588,7 @@ function skyBodies(t,lat,lon,sunEl){
   return out;
 }
 /* ---------- objects ---------- */
-function tierOf(o){if(o.emg)return 4;if(o.kind==='plane'||o.kind==='heli')return Math.max((TYPES[o.type]||[])[8]||1,o.mil?3:0);if(o.kind==='sat')return /^(ISS|CSS)/.test(o.cs)||o.grp==='starlink'||o.grp==='decay'?3:2;if(o.kind==='ship')return 2;return SKYTIER[o.cs]||1}
+function tierOf(o){if(o.emg)return 4;if(o.kind==='plane'||o.kind==='heli')return Math.max((TYPES[o.type]||[])[8]||1,o.mil?3:0);if(o.kind==='sat')return /^(ISS|CSS)/.test(o.cs)||o.grp==='starlink'||o.grp==='decay'?3:2;if(o.kind==='ship')return 2;if(o.kind==='train')return trainTier(o);return SKYTIER[o.cs]||1}
 const typeName=o=>(TYPES[o.type]||[])[0]||o.name||o.desc||o.type||KIND[o.kind];
 // One catch per airframe: aircraft are keyed by their permanent ICAO address. Older catches used the tail number or
 // callsign, so those keys still count as caught.
@@ -616,7 +616,31 @@ function liveObjs(now){
       const v1=ecef(a[0],a[1],a[2]),v2=ecef(b[0],b[1],b[2]);o.gs=Math.hypot(v2[0]-v1[0],v2[1]-v1[1],v2[2]-v1[2])/5/0.5144;
       out.push(o)}catch(e){}}
   }
+  for(const t of S.trains||[])out.push({id:t.id,kind:'train',cs:t.op==='Amtrak'?'AMTK '+t.num:t.line.replace(/^MAX (\w+) Line$/,'MAX $1').replace(/^Portland Streetcar /,'Streetcar ').replace(/ Commuter Rail$/,'').toUpperCase(),name:t.line,op:t.op,lat:t.lat,lon:t.lon,alt:2,gs:(t.mph||0)/1.1508,trk:t.hdg,train:t});
   return out;
+}
+/* ---------- trains ---------- */
+// Amtrak live from the Amtraker feed; TriMet MAX, WES and Streetcar once a TriMet key is set on the server.
+S.trains=[];
+async function loadTrains(){
+  if(document.hidden||!S.filters.train)return;
+  try{const r=await fetch('api/trains?lat='+(Math.round(S.obs.lat*10)/10)+'&lon='+(Math.round(S.obs.lon*10)/10));if(!r.ok)return;const j=await r.json();S.trains=j.trains||[];S.trainsT=Date.now();S.trimet=!!j.trimet}catch(e){}
+}
+setInterval(loadTrains,30000);setTimeout(loadTrains,1500);
+const trainTier=o=>/Empire Builder|Coast Starlight/.test(o.name)?3:o.op==='Amtrak'||/WES/.test(o.name)?2:1;
+const TRAINFACT={'Coast Starlight':'Runs between Seattle and Los Angeles, about 35 hours end to end. One train a day each way, so catching it is a real event.',
+  'Empire Builder':'Chicago to the Pacific Northwest. The train splits at Spokane, with one section going to Seattle and the other along the Columbia River to Portland.',
+  'Amtrak Cascades':'The Northwest corridor train between Vancouver, BC, Seattle, Portland and Eugene, several times a day.',
+  'WES Commuter Rail':'Weekday rush-hour commuter rail between Beaverton and Wilsonville, opened in 2009.'};
+function trainHtml(o){
+  const t=o.train,r=(a,b)=>b?'<dt>'+a+'</dt><dd>'+esc(b)+'</dd>':'',tm=v=>v?new Date(v).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):'';
+  const late=t.late==null?'':t.late<=2&&t.late>=-2?'On time':t.late>0?t.late+' min late':-t.late+' min early';
+  const fact=TRAINFACT[t.line]||(/^MAX/.test(t.line)?'Part of TriMet\'s MAX light rail, which opened in 1986 between Portland and Gresham.':/Streetcar/.test(t.line)?'Portland Streetcar opened in 2001, the first modern streetcar line in the US.':'');
+  return '<h2>About this train</h2><dl class="spec">'+r('Line',t.line)+(t.op==='Amtrak'?r('Train number',t.num):'')+r('Operator',t.op)+r('From',t.from)+r('Heading to',t.to)
+    +r('Next stop',t.next?t.next.name+(t.next.eta?' · '+tm(t.next.eta):''):'')+r('Running',late)+r('Position as of',tm(t.upd))+'</dl>'
+    +(fact?'<p class="fact">'+esc(fact)+'</p>':'')
+    +(t.op==='Amtrak'?'<div class="links"><a href="https://www.amtraker.com/trains/'+encodeURIComponent(t.num)+'" target="_blank" rel="noopener">Live status</a><a href="https://www.amtrak.com/track-your-train.html" target="_blank" rel="noopener">Amtrak</a></div>':'<div class="links"><a href="https://trimet.org/" target="_blank" rel="noopener">TriMet</a></div>')
+    +'<p class="note">Train positions update every minute or two, so the marker can lag the real train.</p>';
 }
 /* ---------- this-airframe details ---------- */
 // used-market range in $M and the age (years) at which a type sits at the low end: rough figures, not appraisals
@@ -708,8 +732,8 @@ const find=id=>(S.objs||[]).find(o=>o.id===id);
 
 /* ---------- formatting ---------- */
 const num=n=>Math.round(n).toLocaleString('en-US');
-const fAlt=o=>o.kind==='sky'?'—':o.kind==='ship'?'Sea level':o.kind==='sat'?num(o.alt/1609.34)+' mi':o.alt<15?'Ground':num(o.alt/0.3048)+' ft';
-const fSpd=o=>o.kind==='sky'?'—':num((o.gs||0)*1.1508)+' mph';
+const fAlt=o=>o.kind==='sky'?'—':o.kind==='train'?'On the tracks':o.kind==='ship'?'Sea level':o.kind==='sat'?num(o.alt/1609.34)+' mi':o.alt<15?'Ground':num(o.alt/0.3048)+' ft';
+const fSpd=o=>o.kind==='sky'||(o.kind==='train'&&o.train.mph==null)?'—':num((o.gs||0)*1.1508)+' mph';
 const fDst=o=>!isFinite(o.dist)?'—':(o.dist/1609.34<10?(o.dist/1609.34).toFixed(1):num(o.dist/1609.34))+' mi';
 const compass=a=>['N','NE','E','SE','S','SW','W','NW'][Math.round(a/45)%8];
 
@@ -720,6 +744,7 @@ function glyph(x,kind,px,py,s,rot,col,fill){
   if(kind==='plane'){x.rotate(rot);x.beginPath();const p=[[0,-1],[.18,-.25],[1,.3],[1,.5],[.18,.25],[.15,.75],[.45,1],[0,.9]];x.moveTo(0,-s);for(let i=1;i<p.length;i++)x.lineTo(p[i][0]*s,p[i][1]*s);for(let i=p.length-2;i>=0;i--)x.lineTo(-p[i][0]*s,p[i][1]*s);x.closePath();fill?x.fill():x.stroke()}
   else if(kind==='heli'){x.beginPath();x.arc(0,0,s*.45,0,7);fill?x.fill():x.stroke();x.beginPath();x.moveTo(-s,-s);x.lineTo(s,s);x.moveTo(s,-s);x.lineTo(-s,s);x.stroke()}
   else if(kind==='sat'){x.rotate(.6);x.fillRect(-s*.3,-s*.3,s*.6,s*.6);x.strokeRect(-s*1.1,-s*.22,s*.6,s*.44);x.strokeRect(s*.5,-s*.22,s*.6,s*.44)}
+  else if(kind==='train'){x.rotate(rot);x.beginPath();x.rect(-s*.42,-s,s*.84,s*2);fill?x.fill():x.stroke();x.fillStyle='#000';x.fillRect(-s*.26,-s*.78,s*.52,s*.36);x.fillStyle=col;x.beginPath();x.moveTo(-s*.7,-s*1.15);x.lineTo(-s*.7,s*1.15);x.moveTo(s*.7,-s*1.15);x.lineTo(s*.7,s*1.15);x.stroke()}
   else if(kind==='ship'){x.rotate(rot);x.beginPath();x.moveTo(0,-s);x.lineTo(s*.5,-s*.2);x.lineTo(s*.5,s);x.lineTo(-s*.5,s);x.lineTo(-s*.5,-s*.2);x.closePath();fill?x.fill():x.stroke()}
   else{x.beginPath();x.arc(0,0,s,0,7);x.globalAlpha=.25;x.fill();x.globalAlpha=1;x.beginPath();x.arc(0,0,s*.6,0,7);x.fill()}
   x.restore();
@@ -976,6 +1001,7 @@ function openDetail(id){
   if(T){h+='<h2>About the '+esc(T[0])+'</h2><dl class="spec"><dt>Role</dt><dd>'+T[2]+'</dd><dt>Built by</dt><dd>'+T[1]+'</dd><dt>Power</dt><dd>'+T[3]+'</dd><dt>Carries</dt><dd>'+T[4]+'</dd>'+(T[5]?'<dt>Range</dt><dd>'+num(T[5]*1.1508)+' mi</dd>':'')+'<dt>Flying since</dt><dd>'+T[7]+'</dd><dt>'+(T[10]==='heli'?'Rotor':'Wingspan')+'</dt><dd>'+T[6]+' ft</dd></dl>'
     +'<div class="span-bar"><span class="lbl">Size next to an A380 (261.6 ft)</span><div class="bar"><i style="width:'+Math.round(T[6]/261.6*100)+'%"></i></div></div><p class="fact">'+T[9]+'</p><p class="note">Typical figures. Variants and airline layouts differ.</p>'}
   else if(o.kind==='sat'){h+='<h2>Next passes over you</h2><div id="d-pass"><p class="note">Working out passes.</p></div><h2>About this satellite</h2><p class="fact">'+esc(satAbout(o))+'</p><div id="d-satcat"></div>';setTimeout(()=>{fillPasses(o);fillSatcat(o)},30)}
+  else if(o.kind==='train'){h+=trainHtml(o)}
   else if(o.kind==='ship'){h+='<h2>About this vessel</h2><p class="fact">'+esc(o.name)+'. Ships broadcast their position over AIS, the marine cousin of the ADS-B signal aircraft send.</p>'}
   else if(o.kind==='sky'&&SKYFACT[o.cs]){h+='<h2>About '+esc(o.name.replace(/ \(.*\)/,''))+'</h2><p class="fact">'+SKYFACT[o.cs]+'</p><p class="note">Stars and planets also make a good compass check: if the marker sits on it, your phone is pointing true.</p>'}
   else if(o.kind==='sky'&&o.id.includes(':')){h+='<h2>Compass check</h2><p class="fact">Aim at '+esc(o.name.replace(/ \(.*\)/,''))+' and see whether its marker sits on top of it. If it does, your compass and zoom are dialed in.</p>'}
@@ -1056,6 +1082,7 @@ function updDetailLive(){
   const o=find(S.detail),el=$('#d-live');if(!el)return;
   if(o&&!S.routes[o.cs]&&Date.now()-(S.rT||0)>8000){S.rT=Date.now();const rr=$('#d-route'),h=routeHtml(o);if(rr&&rr.innerHTML!==h)rr.innerHTML=h}if(!o){el.innerHTML='<div style="grid-column:1/-1" class="note">Out of range now.</div>';return}
   const c=(a,b)=>'<div><dt>'+a+'</dt><dd>'+b+'</dd></div>',air=o.kind==='plane'||o.kind==='heli';
+  if(o.kind==='train'){const t=o.train;el.innerHTML=c('Running',t.late==null?'—':t.late<=2&&t.late>=-2?'On time':t.late>0?t.late+' min late':-t.late+' min early')+c('Speed',fSpd(o))+c('Distance',fDst(o))+c('Bearing',Math.round(o.az)+'° '+compass(o.az))+(t.hdg!=null?c('Heading',compass(t.hdg)):'')+c('Next stop',esc(t.next?t.next.name:'—'));return}
   if(o.kind==='sky'){el.innerHTML=c('Direction',Math.round(o.az)+'° '+compass(o.az))+c('Height',(o.el>=0?'+':'')+Math.round(o.el)+'° up')+c('Type',esc(/planet/.test(o.name)?'Planet':/star/.test(o.name)?'Star':o.cs==='SUN'?'Star (ours)':'Moon'));return}
   el.innerHTML=c('Altitude',fAlt(o))+c('Speed',fSpd(o))+c('Distance',fDst(o))+c('Bearing',Math.round(o.az)+'° '+compass(o.az))+c('Elevation',(o.el>=0?'+':'')+Math.round(o.el)+'°')
    +(o.kind==='sat'?c('Visibility',esc(satVisText(o))):'')+(air?c('Heading',Math.round(o.trk||0)+'° '+compass(o.trk||0))+c('Climb',(o.vr>0?'+':'')+num(o.vr||0)+' fpm')+c('Squawk',esc(o.sq||'—'))+c('Tail no.',esc(o.reg||'—')):o.trk!=null?c('Heading',Math.round(o.trk)+'° '+compass(o.trk)):'');
