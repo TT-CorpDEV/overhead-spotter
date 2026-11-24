@@ -13,6 +13,7 @@ Live at **https://spotter.ttcorp.ai** · club page **https://spotter.ttcorp.ai/c
 | Service worker | `public/sw.js` | Offline shell and push notifications |
 | Place list | `public/places.json` | 2,328 airports and heliports (OurAirports, public domain) for takeoff and destination guesses |
 | API | `netlify/functions/api.mjs` | Area log, track relay, push sign-up (watchlist, satellites, circling, Pick-up settings) |
+| Spotters near you | `netlify/functions/nearby.mjs` | Opt-in, adults-only discovery of other spotters: distance bands only, contact shown after both accept, block and report |
 | Leaderboard | `netlify/functions/club.mjs` | Join, sync and board; the club owner can remove players |
 | 24/7 logger | `netlify/functions/log-traffic.mjs` | Every 2 minutes: logs aircraft around Portland, sends watchlist, emergency, fire, military, rare, circling and Pick-up alerts |
 | Sky alerts | `netlify/functions/sky-alerts.mjs` | Every 10 minutes: ISS, Starlink, watched satellites, reentries and twilight Vandenberg launches |
