@@ -14,6 +14,7 @@ Live at **https://spotter.ttcorp.ai** · club page **https://spotter.ttcorp.ai/c
 | Place list | `public/places.json` | 2,328 airports and heliports (OurAirports, public domain) for takeoff and destination guesses |
 | API | `netlify/functions/api.mjs` | Area log, track relay, push sign-up (watchlist, satellites, circling, Pick-up settings) |
 | Spotters near you | `netlify/functions/nearby.mjs` | Opt-in, adults-only discovery of other spotters: distance bands only, contact shown after both accept, block and report |
+| Trains | `netlify/functions/trains.mjs` | Amtrak trains within 60 miles (Amtraker feed); MAX, WES and Streetcar once `TRIMET_APPID` is set |
 | Leaderboard | `netlify/functions/club.mjs` | Join, sync and board; the club owner can remove players |
 | 24/7 logger | `netlify/functions/log-traffic.mjs` | Every 2 minutes: logs aircraft around Portland, sends watchlist, emergency, fire, military, rare, circling and Pick-up alerts |
 | Sky alerts | `netlify/functions/sky-alerts.mjs` | Every 10 minutes: ISS, Starlink, watched satellites, reentries and twilight Vandenberg launches |
@@ -22,7 +23,7 @@ Live at **https://spotter.ttcorp.ai** · club page **https://spotter.ttcorp.ai/c
 
 ## Data sources
 
-adsb.fi and adsb.lol (live aircraft) · adsbdb (registration and routes) · OpenSky (tracks) · CelesTrak (satellite orbits and catalog) · Launch Library 2 (launches) · FAA Releasable Aircraft Database · OurAirports.
+adsb.fi and adsb.lol (live aircraft) · Amtraker and TriMet (trains) · adsbdb (registration and routes) · OpenSky (tracks) · CelesTrak (satellite orbits and catalog) · Launch Library 2 (launches) · FAA Releasable Aircraft Database · OurAirports.
 
 ## Publishing
 
@@ -32,4 +33,4 @@ adsb.fi and adsb.lol (live aircraft) · adsbdb (registration and routes) · Open
 
 ## Settings (Netlify environment variables)
 
-`AREA` (default `45.52,-122.68,25`: latitude, longitude, radius in nautical miles) · `AREA_TZ` (default `America/Los_Angeles`) · `OPENSKY_CLIENT_ID` / `OPENSKY_CLIENT_SECRET`.
+`AREA` (default `45.52,-122.68,25`: latitude, longitude, radius in nautical miles) · `AREA_TZ` (default `America/Los_Angeles`) · `OPENSKY_CLIENT_ID` / `OPENSKY_CLIENT_SECRET` · `TRIMET_APPID` (free key from developer.trimet.org, turns on MAX, WES and Streetcar).
